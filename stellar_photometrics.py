@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     # ~ suite = 'IllustrisTNG'
     # ~ snapnum = 99
-    # ~ writedir = '/n/ghernquist/vrodrigu/SyntheticImages/output/IllustrisTNG/stellar_photometrics'
+    # ~ writedir = '/n/ghernquist/vrodrigu/SyntheticImages/galaxev/IllustrisTNG/stellar_photometrics'
     # ~ bc03_model_dir = '/n/home10/vrodrigu/galaxev_code/bc03/Padova1994/chabrier'
     # ~ filter_dir = '/n/home10/vrodrigu/SyntheticImages/broadband_filters'
     # ~ filename_filters = '/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt'
@@ -110,9 +110,10 @@ if __name__ == '__main__':
     if not os.path.lexists(writedir):
         os.makedirs(writedir)
 
-    # Get luminosity distance (if redshift is essentially zero, use 10 pc)
-    if z < 1e-10:
-        d_L = 10.0 * 3.086e16  # 10 pc in meters
+    # Get luminosity distance (if redshift too small, use 10 Mpc)
+    if z < 2.5e-3:
+        d_L = 10.0 * 3.086e22  # 10 Mpc in meters
+        print('WARNING: assuming that source is at 10 Mpc.')
     else:
         params = cosmo.CosmologicalParameters(suite=suite)
         d_L = cosmo.luminosity_distance(z, params)  # meters
@@ -163,21 +164,33 @@ if __name__ == '__main__':
         filter_lambda *= 1e-10  # to meters
         filter_interp = ip.interp1d(filter_lambda, filter_response, bounds_error=False, fill_value=0.0)
 
+        # Apply eq. (8) from the BC03 manual
+        R = filter_interp(wavelengths)
+        denominator = it.trapz(
+            FAB_lambda * wavelengths * R, x=wavelengths)
+
         # For now, iterate for every Z, age combination:
         for k in range(num_metallicities):
             for j in range(num_stellar_ages):
-                # Apply eq. (8) from the BC03 manual
                 F_lambda = datacube[k, j, :]
-                R = filter_interp(wavelengths)
                 # (1+z) factor comes from the stretching of dlambda
                 # (spreading of photons in wavelength)
                 numerator = it.trapz(
                     F_lambda / (1.0 + z) * wavelengths * R, x=wavelengths)
-                denominator = it.trapz(
-                    FAB_lambda * wavelengths * R, x=wavelengths)
                 magnitudes[k, j] = -2.5 * np.log10(numerator / denominator)
 
-        f.create_dataset(filter_name, data=magnitudes)
+        dset = f.create_dataset(filter_name, data=magnitudes)
+
+        # Note that this denominator is proportional to the reference flux
+        # in counts/s (assuming that the filter response is given in m^2 counts/photon; otherwise ),
+        # which we store for convenience.
+        # If the filter response is given as a capture cross-section in
+        # m^2 counts/photon (e.g. Pan-STARRS), then the units are photons/s.
+        # Otherwise, if the filter response is an adimensional quantum efficiency,
+        # then the units are photons/s/m^2.
+        zeropoint_phot = float(denominator) / (const.h.value * const.c.value)  # photons/s
+        dset.attrs['zeropoint_phot'] = zeropoint_phot
+
         print('Finished for filter %s.' % (filter_name))
 
     f.close()
