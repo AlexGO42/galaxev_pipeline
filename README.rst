@@ -37,18 +37,23 @@ How to use
 First stage:
 - Go to the BC03 ``src`` directory.
 - Switch to C shell:
-$ csh
-- Convert relevant model files to ASCII:
-$ ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m22_chab_ssp.ised
-$ ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m32_chab_ssp.ised
-...
-$ ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m82_chab_ssp.ised
-- Optionally, rest-frame magnitudes can be calculated as follows:
-- Append filter names to ``filters.log`` and filter response functions to
-  ``filterfrm.res`` (wavelengths are in angstroms).
-- Specify filter names of interest in ``RF_COLORS.filters``
-- Create binary filter file:
-$ ./build_filterbin
+.. code:: bash
+    csh
+- Convert relevant model files to ASCII, e.g.:
+
+.. code:: bash
+
+    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m22_chab_ssp.ised
+    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m32_chab_ssp.ised
+    ...
+    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m82_chab_ssp.ised
+
+- Run stellar_photometrics.py with the appropriate parameters:
+
+.. code:: bash
+
+    python stellar_photometrics.py suite snapnum writedir bc03_model_dir filter_dir filename_filters
+
 
 Author
 ------

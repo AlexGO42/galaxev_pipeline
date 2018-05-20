@@ -66,7 +66,7 @@ def transform(x, jvec, proj_kind='xy'):
         2-dimensional array (Nx2) with the projected particle positions.
 
     """
-    # ~ assert len(jvec) == x.shape[1] == 3
+    assert len(jvec) == x.shape[1] == 3
 
     # Define unit basis vectors of new reference frame
     if proj_kind == 'yz':
@@ -103,9 +103,38 @@ def transform(x, jvec, proj_kind='xy'):
     
     return x_new
 
-def get_hsml(x, y, num_neighbors=16):
+# ~ def get_hsml(x, y, num_neighbors=16):
+    # ~ """
+    # ~ Get distance to the Nth (usually 16th) nearest neighbor in 2D.
+    
+    # ~ Parameters
+    # ~ ----------
+    # ~ x : array-like
+        # ~ x-coordinates of the particles.
+    # ~ y : array-like
+        # ~ y-coordinates of the particles.
+    # ~ num_neighbors : int, optional
+        # ~ Specifies how many neighbors to search for.
+
+    # ~ Returns
+    # ~ -------
+    # ~ hsml : array-like
+        # ~ Distances to the Nth nearest neighbors.
+    
+    # ~ """
+    # ~ data = np.empty((len(x), 2))
+    # ~ data[:,0] = x.ravel()
+    # ~ data[:,1] = y.ravel()
+
+    # ~ tree = cKDTree(data)
+    # ~ res = tree.query(data, k=num_neighbors+1)
+    # ~ hsml = res[0][:,-1]
+
+    # ~ return hsml
+
+def get_hsml(x, y, z, num_neighbors=16):
     """
-    Get distance to the Nth (usually 16th) nearest neighbor.
+    Get distance to the Nth (usually 16th) nearest neighbor in 3D.
     
     Parameters
     ----------
@@ -113,6 +142,8 @@ def get_hsml(x, y, num_neighbors=16):
         x-coordinates of the particles.
     y : array-like
         y-coordinates of the particles.
+    z : array-like
+        z-coordinates of the particles.
     num_neighbors : int, optional
         Specifies how many neighbors to search for.
 
@@ -122,9 +153,10 @@ def get_hsml(x, y, num_neighbors=16):
         Distances to the Nth nearest neighbors.
     
     """
-    data = np.empty((len(x), 2))
+    data = np.empty((len(x), 3))
     data[:,0] = x.ravel()
     data[:,1] = y.ravel()
+    data[:,2] = z.ravel()
 
     tree = cKDTree(data)
     res = tree.query(data, k=num_neighbors+1)
@@ -258,22 +290,21 @@ def create_file(subfind_id):
     if not os.path.lexists(sub_dir):
         os.makedirs(sub_dir)
 
-    # ~ # Define 2D bins (in units of rhalf)
-    # ~ npixels = int(np.ceil(npixels_per_softening_length * (2*num_rhalfs) *
-                          # ~ rhalf[subfind_id] / softening_length_kpc_h))
-    # ~ print('npixels = %d' % (npixels))
-    # ~ xedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1)
-    # ~ yedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1)
-    # ~ xcenters = 0.5 * (xedges[:-1] + xedges[1:])
-    # ~ ycenters = 0.5 * (yedges[:-1] + yedges[1:])
-
-    # Define 2D bins (ckpc/h)
+    # Define 2D bins (in units of rhalf)
     npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
-    print('npixels =', npixels)
-    xedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1) * rhalf[subfind_id]
-    yedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1) * rhalf[subfind_id]
+    print('npixels = %d' % (npixels))
+    xedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1)
+    yedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1)
     xcenters = 0.5 * (xedges[:-1] + xedges[1:])
     ycenters = 0.5 * (yedges[:-1] + yedges[1:])
+
+    # ~ # Define 2D bins (ckpc/h)
+    # ~ npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
+    # ~ print('npixels =', npixels)
+    # ~ xedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1) * rhalf[subfind_id]
+    # ~ yedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1) * rhalf[subfind_id]
+    # ~ xcenters = 0.5 * (xedges[:-1] + xedges[1:])
+    # ~ ycenters = 0.5 * (yedges[:-1] + yedges[1:])
 
     # Load stellar particle info
     start = time.time()
@@ -304,21 +335,24 @@ def create_file(subfind_id):
     dx = pos[:] - pos[0]
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
 
-    # ~ # Transform particle positions according to 'proj_kind'
-    # ~ dx_new = transform(dx, jstar_direction[subfind_id], proj_kind=proj_kind)
+    # Normalize by rhalf
+    dx = dx / rhalf[subfind_id]  # in rhalfs
 
-    # Transform particle positions according to 'proj_kind'
-    dx_new = transform(dx, None, proj_kind=proj_kind)
-
-    # Get smoothing lengths
+    # Get smoothing lengths in 3D (before making 2D projection)
     start = time.time()
     print('Doing spatial search...')
-    hsml = get_hsml(dx_new[:,0], dx_new[:,1])  # in rhalfs
+    hsml = get_hsml(dx[:,0], dx[:,1], dx[:,2])  # in rhalfs
     print('Time: %g s.' % (time.time() - start))
 
-    # Impose minimum smoothing length equal to the gravitational
-    # softening length:
-    hsml = np.where(hsml >= softening_length, hsml, softening_length)
+    # Transform particle positions according to 'proj_kind' (2D projection)
+    dx_new = transform(dx, jstar_direction[subfind_id], proj_kind=proj_kind)
+
+    # Impose minimum smoothing length equal to 2.8 times the (Plummer-equivalent)
+    # gravitational softening length:
+    softening_length_rhalfs = softening_length / rhalf[subfind_id]
+    eps_to_hsml = 2.8
+    hsml = np.where(hsml >= eps_to_hsml * softening_length_rhalfs, hsml,
+                    eps_to_hsml * softening_length_rhalfs)
 
     # Store images here
     image = np.zeros((num_filters,npixels,npixels), dtype=np.float32)
@@ -336,9 +370,10 @@ def create_file(subfind_id):
     # ~ counts_map = adaptive_smoothing(dx_new[:,0], dx_new[:,1], hsml, xcenters, ycenters,
                                     # ~ weights=None)
 
-    # Convert area units from (ckpc/h)^{-2} to pixel_size^{-2}
-    image *= kpc_h_per_pixel**2
-    # ~ counts_map *= kpc_h_per_pixel**2
+    # Convert area units from rhalf^{-2} to pixel_size^{-2}
+    pixel_size_rhalfs =  2.0 * num_rhalfs / float(npixels)  # in rhalfs
+    image *= pixel_size_rhalfs**2
+    # ~ counts_map *= pixel_size_rhalfs**2
 
     # Create some header attributes
     header = fits.Header()
@@ -361,27 +396,30 @@ def create_file(subfind_id):
 
 
 if __name__ == '__main__':
-    # ~ try:
-        # ~ suite = sys.argv[1]
-        # ~ basedir = sys.argv[2]
-        # ~ amdir = sys.argv[3]
-        # ~ writedir = sys.argv[4]
-        # ~ snapnum = int(sys.argv[5])
-        # ~ proj_kind = sys.argv[6]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
-        # ~ nprocesses = int(sys.argv[7])
-    # ~ except:
-        # ~ print('Arguments: suite basedir amdir writedir snapnum proj_kind nprocesses')
-        # ~ sys.exit()
+    try:
+        suite = sys.argv[1]
+        basedir = sys.argv[2]
+        amdir = sys.argv[3]
+        filename_filters = sys.argv[4]
+        stellar_photometrics_dir = sys.argv[5]
+        writedir = sys.argv[6]
+        snapnum = int(sys.argv[7])
+        proj_kind = sys.argv[8]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
+        nprocesses = int(sys.argv[9])
+    except:
+        print('Arguments: suite basedir amdir filename_filters ' + 
+              'stellar_photometrics_dir writedir snapnum proj_kind nprocesses')
+        sys.exit()
 
-    suite = 'IllustrisTNG'
-    basedir = '/n/hernquistfs3/IllustrisTNG/Runs/L75n1820TNG/output'
-    amdir = '/n/ghernquist/vrodrigu/AngularMomentum/output/IllustrisTNG/L75n1820TNG'
-    filename_filters = '/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt'
-    stellar_photometrics_dir = '/n/ghernquist/vrodrigu/SyntheticImages/galaxev/IllustrisTNG/stellar_photometrics'
-    writedir = '/n/ghernquist/vrodrigu/SyntheticImages/galaxev/IllustrisTNG/L75n1820TNG'
-    snapnum = 96
-    proj_kind = 'xy'
-    nprocesses = 1
+    # ~ suite = 'IllustrisTNG'
+    # ~ basedir = '/n/hernquistfs3/IllustrisTNG/Runs/L75n1820TNG/output'
+    # ~ amdir = '/n/ghernquist/vrodrigu/AngularMomentum/output/IllustrisTNG/L75n1820TNG'
+    # ~ filename_filters = '/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt'
+    # ~ stellar_photometrics_dir = '/n/ghernquist/vrodrigu/SyntheticImages/galaxev/IllustrisTNG/stellar_photometrics'
+    # ~ writedir = '/n/ghernquist/vrodrigu/SyntheticImages/galaxev/IllustrisTNG/L75n1820TNG'
+    # ~ snapnum = 96
+    # ~ proj_kind = 'xy'
+    # ~ nprocesses = 1
 
     max_softening_length = 0.5  # kpc/h
     num_rhalfs = 10.0  # on each side from the center
@@ -439,9 +477,8 @@ if __name__ == '__main__':
     print('Loading subhalo info...')
     mstar = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloMassType'])[:, parttype_stars]
     rhalf = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
-    # ~ with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
-        # ~ jstar_direction = f['jstar_direction'][:]
-    jstar_direction = None
+    with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
+        jstar_direction = f['jstar_direction'][:]
     nsubs = len(mstar)
     print('Time: %f s.' % (time.time() - start))
 
