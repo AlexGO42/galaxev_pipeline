@@ -34,11 +34,15 @@ Compile the external C module as:
 How to use
 ----------
 
-First stage:
+** First stage: **
+
 - Go to the BC03 ``src`` directory.
 - Switch to C shell:
+
 .. code:: bash
+
     csh
+
 - Convert relevant model files to ASCII, e.g.:
 
 .. code:: bash

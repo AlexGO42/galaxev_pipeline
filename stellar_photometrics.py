@@ -89,8 +89,9 @@ if __name__ == '__main__':
         bc03_model_dir = sys.argv[4]
         filter_dir = sys.argv[5]
         filename_filters = sys.argv[6]
+        codedir = sys.argv[7]
     except:
-        print('Arguments: suite snapnum writedir bc03_model_dir filter_dir filename_filters')
+        print('Arguments: suite snapnum writedir bc03_model_dir filter_dir filename_filters codedir')
         sys.exit()
 
     # ~ suite = 'IllustrisTNG'
@@ -103,7 +104,7 @@ if __name__ == '__main__':
     degrade_resolution = False
     
     # Get redshift for given snapshot
-    redshifts_all = np.loadtxt('Redshifts%s.txt' % (suite))
+    redshifts_all = np.loadtxt('%s/Redshifts%s.txt' % (codedir, suite))
     z = redshifts_all[snapnum]
 
     # Make sure write directory exists

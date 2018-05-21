@@ -103,35 +103,6 @@ def transform(x, jvec, proj_kind='xy'):
     
     return x_new
 
-# ~ def get_hsml(x, y, num_neighbors=16):
-    # ~ """
-    # ~ Get distance to the Nth (usually 16th) nearest neighbor in 2D.
-    
-    # ~ Parameters
-    # ~ ----------
-    # ~ x : array-like
-        # ~ x-coordinates of the particles.
-    # ~ y : array-like
-        # ~ y-coordinates of the particles.
-    # ~ num_neighbors : int, optional
-        # ~ Specifies how many neighbors to search for.
-
-    # ~ Returns
-    # ~ -------
-    # ~ hsml : array-like
-        # ~ Distances to the Nth nearest neighbors.
-    
-    # ~ """
-    # ~ data = np.empty((len(x), 2))
-    # ~ data[:,0] = x.ravel()
-    # ~ data[:,1] = y.ravel()
-
-    # ~ tree = cKDTree(data)
-    # ~ res = tree.query(data, k=num_neighbors+1)
-    # ~ hsml = res[0][:,-1]
-
-    # ~ return hsml
-
 def get_hsml(x, y, z, num_neighbors=16):
     """
     Get distance to the Nth (usually 16th) nearest neighbor in 3D.
@@ -211,7 +182,7 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, weights=None):
 
     # Compile as:
     # gcc -o adaptive_smoothing.so -shared -fPIC adaptive_smoothing.c
-    sphlib = np.ctypeslib.load_library('adaptive_smoothing', '.')
+    sphlib = np.ctypeslib.load_library('adaptive_smoothing', codedir)
     sphlib.add.restype = None
     sphlib.add.argtypes = [
         ctypes.POINTER(ctypes.c_double),
@@ -253,33 +224,33 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, weights=None):
 
     return H
 
-# ~ def get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar):
-    # ~ nsubs = len(mstar)
+def get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar):
+    nsubs = len(mstar)
 
-    # ~ # Mass bins
-    # ~ mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
-    # ~ mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
-    # ~ num_mstar_bins = len(log_mstar_bin_lower)
+    # Mass bins
+    mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
+    mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
+    num_mstar_bins = len(log_mstar_bin_lower)
 
-    # ~ # Iterate over mass bins
-    # ~ subfind_ids = []
-    # ~ for mstar_bin_index in range(num_mstar_bins):
-        # ~ mstar_min = 10.0**log_mstar_bin_lower[mstar_bin_index] / 1e10 * h
-        # ~ mstar_max = 10.0**log_mstar_bin_upper[mstar_bin_index] / 1e10 * h
+    # Iterate over mass bins
+    subfind_ids = []
+    for mstar_bin_index in range(num_mstar_bins):
+        mstar_min = 10.0**log_mstar_bin_lower[mstar_bin_index] / 1e10 * h
+        mstar_max = 10.0**log_mstar_bin_upper[mstar_bin_index] / 1e10 * h
 
-        # ~ # Only proceed if there are enough galaxies
-        # ~ locs_valid = ((mstar >= mstar_min) * (mstar < mstar_max))
-        # ~ if np.sum(locs_valid) == 0:
-            # ~ print('Not enough galaxies. Skipping...')
-            # ~ return
+        # Only proceed if there are enough galaxies
+        locs_valid = ((mstar >= mstar_min) * (mstar < mstar_max))
+        if np.sum(locs_valid) == 0:
+            print('Not enough galaxies. Skipping...')
+            return
 
-        # ~ # Iterate over subhalos
-        # ~ for subfind_id in range(nsubs):
-            # ~ # Only proceed if current subhalo is within mass range
-            # ~ if locs_valid[subfind_id]:
-                # ~ subfind_ids.append(subfind_id)
+        # Iterate over subhalos
+        for subfind_id in range(nsubs):
+            # Only proceed if current subhalo is within mass range
+            if locs_valid[subfind_id]:
+                subfind_ids.append(subfind_id)
 
-    # ~ return subfind_ids
+    return subfind_ids
 
 def create_file(subfind_id):
     """
@@ -297,14 +268,6 @@ def create_file(subfind_id):
     yedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1)
     xcenters = 0.5 * (xedges[:-1] + xedges[1:])
     ycenters = 0.5 * (yedges[:-1] + yedges[1:])
-
-    # ~ # Define 2D bins (ckpc/h)
-    # ~ npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
-    # ~ print('npixels =', npixels)
-    # ~ xedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1) * rhalf[subfind_id]
-    # ~ yedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1) * rhalf[subfind_id]
-    # ~ xcenters = 0.5 * (xedges[:-1] + xedges[1:])
-    # ~ ycenters = 0.5 * (yedges[:-1] + yedges[1:])
 
     # Load stellar particle info
     start = time.time()
@@ -403,41 +366,19 @@ if __name__ == '__main__':
         filename_filters = sys.argv[4]
         stellar_photometrics_dir = sys.argv[5]
         writedir = sys.argv[6]
-        snapnum = int(sys.argv[7])
-        proj_kind = sys.argv[8]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
-        nprocesses = int(sys.argv[9])
+        codedir = sys.argv[7]
+        snapnum = int(sys.argv[8])
+        proj_kind = sys.argv[9]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
+        nprocesses = int(sys.argv[10])
     except:
         print('Arguments: suite basedir amdir filename_filters ' + 
-              'stellar_photometrics_dir writedir snapnum proj_kind nprocesses')
+              'stellar_photometrics_dir writedir codedir snapnum proj_kind nprocesses')
         sys.exit()
-
-    # ~ suite = 'IllustrisTNG'
-    # ~ basedir = '/n/hernquistfs3/IllustrisTNG/Runs/L75n1820TNG/output'
-    # ~ amdir = '/n/ghernquist/vrodrigu/AngularMomentum/output/IllustrisTNG/L75n1820TNG'
-    # ~ filename_filters = '/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt'
-    # ~ stellar_photometrics_dir = '/n/ghernquist/vrodrigu/SyntheticImages/galaxev/IllustrisTNG/stellar_photometrics'
-    # ~ writedir = '/n/ghernquist/vrodrigu/SyntheticImages/galaxev/IllustrisTNG/L75n1820TNG'
-    # ~ snapnum = 96
-    # ~ proj_kind = 'xy'
-    # ~ nprocesses = 1
 
     max_softening_length = 0.5  # kpc/h
     num_rhalfs = 10.0  # on each side from the center
     num_neighbors = 16  # for adaptive smoothing
     arcsec_per_pixel = 0.258  # Pan-STARRS PS1
-
-    # IllustrisTNG, snapshot 96
-    subfind_ids = []
-    subfind_ids += [88, 92, 94, 104]  # 10^9.5 Msun
-    subfind_ids += [36, 38, 50, 54]  # 10^10 Msun
-    subfind_ids += [25, 39, 47, 52]  # 10^10.5 Msun
-    subfind_ids += [12, 16, 13977, 13980]  # 10^11 Msun
-    subfind_ids += [38093, 48515, 64405, 97486]  # 10^11.5 Msun
-    subfind_ids += [ 71098,  71099, 109340, 116871]  # 10^11.9 Msun
-
-    # ~ # Get redshift for given snapshot
-    # ~ redshifts_all = np.loadtxt('Redshifts%s.txt' % (suite))
-    # ~ z = redshifts_all[snapnum]
 
     # Read filter names
     with open(filename_filters, 'r') as f:
@@ -485,28 +426,14 @@ if __name__ == '__main__':
     # For performance checks
     start_all = time.time()
 
-    # ~ # SDSS g,r,i bands correspond to entries 4,5,6
-    # ~ bands = [4, 5, 6]
-    # ~ num_bands = len(bands)
+    # Define stellar mass bins
+    log_mstar_bin_lower = np.array([9.5])
+    log_mstar_bin_upper = np.array([13.0])
+    mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
+    mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
 
-    # ~ datadir = '%s/snap_%03d/data' % (writedir, snapnum)
-    # ~ imgdir = '%s/snap_%03d/images' % (writedir, snapnum)
-    # ~ # Make sure that write directories exist
-    # ~ if not os.path.exists(imgdir):
-        # ~ os.popen('mkdir -p %s' % (imgdir))
-    # ~ if not os.path.exists(datadir):
-        # ~ os.popen('mkdir -p %s' % (datadir))
-
-
-    # ~ # Define stellar mass bins
-    # ~ log_mstar_bin_lower = np.array([9.0])
-    # ~ log_mstar_bin_upper = np.array([13.0])
-    # ~ mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
-    # ~ mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
-    # ~ num_mstar_bins = len(log_mstar_bin_lower)
-
-    # ~ # Get list of relevant Subfind IDs
-    # ~ subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar)
+    # Get list of relevant Subfind IDs
+    subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar)
 
     if nprocesses == 1:
         for subfind_id in subfind_ids:
