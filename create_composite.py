@@ -256,11 +256,6 @@ def create_file(subfind_id):
     """
     Create (adaptively smoothed) composite image.
     """
-    # Create directory to store subhalo data
-    sub_dir = '%s/snapnum_%03d/sub_%d' % (writedir, snapnum, subfind_id)
-    if not os.path.lexists(sub_dir):
-        os.makedirs(sub_dir)
-
     # Define 2D bins (in units of rhalf)
     npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
     print('npixels = %d' % (npixels))
@@ -353,7 +348,7 @@ def create_file(subfind_id):
     # Write to FITS file
     hdu = fits.PrimaryHDU(data=image, header=header)
     hdulist = fits.HDUList([hdu])
-    hdulist.writeto('%s/broadband_%s.fits' % (sub_dir, proj_kind))
+    hdulist.writeto('%s/broadband_%d.fits' % (proj_dir, subfind_id))
 
     print('Finished for subhalo %d.\n' % (subfind_id))
 
@@ -379,6 +374,11 @@ if __name__ == '__main__':
     num_rhalfs = 10.0  # on each side from the center
     num_neighbors = 16  # for adaptive smoothing
     arcsec_per_pixel = 0.258  # Pan-STARRS PS1
+
+    # Save images in this directory:
+    proj_dir = '%s/snapnum_%03d/%s' % (writedir, snapnum, proj_kind)
+    if not os.path.lexists(proj_dir):
+        os.makedirs(proj_dir)
 
     # Read filter names
     with open(filename_filters, 'r') as f:
