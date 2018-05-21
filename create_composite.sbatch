@@ -34,7 +34,8 @@ STELLAR_PHOTOMETRICS_DIR=/n/hernquistfs3/vrodrigu/SyntheticImages/galaxev/${SUIT
 WRITEDIR=/n/hernquistfs3/vrodrigu/SyntheticImages/galaxev/${SUITE}/${SIMULATION}
 CODEDIR=/n/home10/vrodrigu/SyntheticImages/galaxev_pipeline
 PROJ_KIND=xy
+USE_CF00=1
 # Must match "--ntasks-per-node":
 NPROCESSES=64
 
-python ${CODEDIR}/create_composite.py ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${PROJ_KIND} ${NPROCESSES}
+python ${CODEDIR}/create_composite.py ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${PROJ_KIND} ${USE_CF00} ${NPROCESSES}

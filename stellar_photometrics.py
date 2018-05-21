@@ -80,6 +80,21 @@ def read_bc03():
     else:
         return datacube_hr, metallicities, stellar_ages, wavelengths_hr
 
+def apply_cf00(datacube, stellar_ages, wavelengths):
+    t_BC = 1e7  # yr
+    tau_BC = 1.0
+    tau_c = 0.3
+    n = -0.7
+    lambda_0 = 5500.0  # angstroms
+    
+    tau_cube = np.zeros_like(datacube)
+    tau_cube[:, stellar_ages <= t_BC, :] = tau_BC
+    tau_cube[:, stellar_ages >  t_BC, :] = tau_c
+    
+    datacube *= np.exp(-tau_cube*(wavelengths[np.newaxis,np.newaxis,:]/lambda_0)**n)
+    
+    return datacube
+
 if __name__ == '__main__':
     
     try:
@@ -90,16 +105,10 @@ if __name__ == '__main__':
         filter_dir = sys.argv[5]
         filename_filters = sys.argv[6]
         codedir = sys.argv[7]
+        use_cf00 = bool(int(sys.argv[8]))
     except:
-        print('Arguments: suite snapnum writedir bc03_model_dir filter_dir filename_filters codedir')
+        print('Arguments: suite snapnum writedir bc03_model_dir filter_dir filename_filters codedir use_cf00')
         sys.exit()
-
-    # ~ suite = 'IllustrisTNG'
-    # ~ snapnum = 99
-    # ~ writedir = '/n/ghernquist/vrodrigu/SyntheticImages/galaxev/IllustrisTNG/stellar_photometrics'
-    # ~ bc03_model_dir = '/n/home10/vrodrigu/galaxev_code/bc03/Padova1994/chabrier'
-    # ~ filter_dir = '/n/home10/vrodrigu/SyntheticImages/broadband_filters'
-    # ~ filename_filters = '/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt'
 
     degrade_resolution = False
     
@@ -132,6 +141,10 @@ if __name__ == '__main__':
     num_stellar_ages = len(stellar_ages)
     num_metallicities = len(metallicities)
     
+    # Apply Charlot & Fall (2000) model
+    if use_cf00:
+        datacube = apply_cf00(datacube, stellar_ages, wavelengths)
+    
     # Shift rest-frame wavelengths to observer-frame; convert to meters
     wavelengths *= (1.0 + z) * 1e-10  # m
     
@@ -150,7 +163,10 @@ if __name__ == '__main__':
         filter_names = list(map(lambda s: s.strip('\n'), f.readlines()))
     
     # Write output to this file
-    f = h5py.File('%s/stellar_photometrics_%03d.hdf5' % (writedir, snapnum), 'w')
+    if use_cf00:
+        f = h5py.File('%s/stellar_photometrics_%03d_cf00.hdf5' % (writedir, snapnum), 'w')
+    else:
+        f = h5py.File('%s/stellar_photometrics_%03d.hdf5' % (writedir, snapnum), 'w')
     f.create_dataset('metallicities', data=metallicities)
     f.create_dataset('stellar_ages', data=stellar_ages)
 
