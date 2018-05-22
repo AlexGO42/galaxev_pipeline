@@ -353,7 +353,7 @@ def create_file(subfind_id):
     # Write to FITS file
     hdu = fits.PrimaryHDU(data=image, header=header)
     hdulist = fits.HDUList([hdu])
-    hdulist.writeto('%s/broadband_%d.fits' % (proj_dir, subfind_id))
+    hdulist.writeto('%s/broadband_%d.fits' % (datadir, subfind_id))
 
     print('Finished for subhalo %d.\n' % (subfind_id))
 
@@ -384,11 +384,12 @@ if __name__ == '__main__':
 
     # Save images here
     if use_cf00:
-        proj_dir = '%s/snapnum_%03d/%s_cf00' % (writedir, snapnum, proj_kind)
+        synthdir = '%s/snapnum_%03d/%s_cf00' % (writedir, snapnum, proj_kind)
     else:
-        proj_dir = '%s/snapnum_%03d/%s' % (writedir, snapnum, proj_kind)
-    if not os.path.lexists(proj_dir):
-        os.makedirs(proj_dir)
+        synthdir = '%s/snapnum_%03d/%s' % (writedir, snapnum, proj_kind)
+    datadir = '%s/data' % (synthdir)
+    if not os.path.lexists(datadir):
+        os.makedirs(datadir)
 
     # Read filter names
     with open(filename_filters, 'r') as f:
