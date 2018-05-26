@@ -259,7 +259,7 @@ def get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar):
 
 def create_file(subfind_id):
     """
-    Create (adaptively smoothed) composite image.
+    Create (adaptively smoothed) images for the chosen filters.
     """
     # Define 2D bins (in units of rhalf)
     npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))

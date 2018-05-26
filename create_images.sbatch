@@ -2,9 +2,9 @@
 
 #SBATCH --mail-user=vrg@jhu.edu
 #SBATCH --mail-type=ALL
-#SBATCH -J comp_95
-#SBATCH -o comp_95.out
-#SBATCH -e comp_95.err
+#SBATCH -J img_95
+#SBATCH -o img_95.out
+#SBATCH -e img_95.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=64
 #SBATCH -t 7-00:00:00
@@ -38,4 +38,4 @@ USE_CF00=1
 # Must match "--ntasks-per-node":
 NPROCESSES=64
 
-python ${CODEDIR}/create_composite.py ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${PROJ_KIND} ${USE_CF00} ${NPROCESSES}
+python ${CODEDIR}/create_images.py ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${PROJ_KIND} ${USE_CF00} ${NPROCESSES}
