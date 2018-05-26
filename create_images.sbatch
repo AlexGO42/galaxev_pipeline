@@ -2,9 +2,9 @@
 
 #SBATCH --mail-user=vrg@jhu.edu
 #SBATCH --mail-type=ALL
-#SBATCH -J img_95
-#SBATCH -o img_95.out
-#SBATCH -e img_95.err
+#SBATCH -J img_FP_131_cf00
+#SBATCH -o img_FP_131_cf00.out
+#SBATCH -e img_FP_131_cf00.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=64
 #SBATCH -t 7-00:00:00
@@ -15,17 +15,17 @@
 # OMP_NUM_THREADS controls the number of threads your application uses:
 export OMP_NUM_THREADS=$SLURM_NTASKS_PER_NODE
 
-# IllustrisTNG
-FILESYSTEM=hernquistfs3
-SUITE=IllustrisTNG
-SIMULATION=L75n1820TNG
-SNAPNUM=95
+#~ # IllustrisTNG
+#~ FILESYSTEM=hernquistfs3
+#~ SUITE=IllustrisTNG
+#~ SIMULATION=L75n1820TNG
+#~ SNAPNUM=95
 
-#~ # Illustris
-#~ FILESYSTEM=ghernquist
-#~ SUITE=Illustris
-#~ SIMULATION=L75n1820FP
-#~ SNAPNUM=135
+# Illustris
+FILESYSTEM=ghernquist
+SUITE=Illustris
+SIMULATION=L75n1820FP
+SNAPNUM=131
 
 BASEDIR=/n/${FILESYSTEM}/${SUITE}/Runs/${SIMULATION}/output
 AMDIR=/n/hernquistfs3/vrodrigu/AngularMomentum/output/${SUITE}/${SIMULATION}

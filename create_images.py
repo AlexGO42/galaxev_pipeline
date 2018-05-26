@@ -151,8 +151,7 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, weights=None):
     y : array-like
         y-coordinates of the particles.
     hsml : array-like
-        Distances to the Nth nearest neighbors *or* desired
-        adaptive smoothing lengths.
+        Smoothing lengths (same units as x and y).
     xcenters : array-like
         1-d array with the pixel centers along the x-axis
     ycenters : array-like
@@ -310,12 +309,12 @@ def create_file(subfind_id):
     # Transform particle positions according to 'proj_kind' (2D projection)
     dx_new = transform(dx, jstar_direction[subfind_id], proj_kind=proj_kind)
 
-    # Impose minimum smoothing length equal to 2.8 times the (Plummer-equivalent)
-    # gravitational softening length:
-    softening_length_rhalfs = softening_length / rhalf[subfind_id]
-    eps_to_hsml = 2.8
-    hsml = np.where(hsml >= eps_to_hsml * softening_length_rhalfs, hsml,
-                    eps_to_hsml * softening_length_rhalfs)
+    # ~ # Impose minimum smoothing length equal to 2.8 times the (Plummer-equivalent)
+    # ~ # gravitational softening length:
+    # ~ softening_length_rhalfs = softening_length / rhalf[subfind_id]
+    # ~ eps_to_hsml = 2.8
+    # ~ hsml = np.where(hsml >= eps_to_hsml * softening_length_rhalfs, hsml,
+                    # ~ eps_to_hsml * softening_length_rhalfs)
 
     # Store images here
     image = np.zeros((num_filters,npixels,npixels), dtype=np.float32)
@@ -377,7 +376,7 @@ if __name__ == '__main__':
               'proj_kind use_cf00 nprocesses')
         sys.exit()
 
-    max_softening_length = 0.5  # kpc/h
+    # ~ max_softening_length = 0.5  # kpc/h
     num_rhalfs = 10.0  # on each side from the center
     num_neighbors = 16  # for adaptive smoothing
     arcsec_per_pixel = 0.258  # Pan-STARRS PS1
@@ -403,11 +402,11 @@ if __name__ == '__main__':
         z = header['Redshift']
         box_size = header['BoxSize']
 
-    # Try sigma equal to softening length at current redshift
-    if z < 1:
-        softening_length = (1.0 + z) * max_softening_length  # comoving kpc/h
-    else:
-        softening_length = 2.0 * max_softening_length  # comoving kpc/h
+    # ~ # Softening length at current redshift
+    # ~ if z < 1:
+        # ~ softening_length = (1.0 + z) * max_softening_length  # comoving kpc/h
+    # ~ else:
+        # ~ softening_length = 2.0 * max_softening_length  # comoving kpc/h
 
     # Get angular-diameter distance (if redshift is too small, assume source is at 10 Mpc)
     if z < 2.5e-3:
