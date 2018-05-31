@@ -108,7 +108,7 @@ def transform(x, jvec, proj_kind='xy'):
     
     return x_new
 
-def get_hsml(x, y, z, num_neighbors=16):
+def get_hsml(x, y, z, num_neighbors):
     """
     Get distance to the Nth (usually 16th) nearest neighbor in 3D.
     
@@ -120,7 +120,7 @@ def get_hsml(x, y, z, num_neighbors=16):
         y-coordinates of the particles.
     z : array-like
         z-coordinates of the particles.
-    num_neighbors : int, optional
+    num_neighbors : int
         Specifies how many neighbors to search for.
 
     Returns
@@ -303,7 +303,7 @@ def create_file(subfind_id):
     # Get smoothing lengths in 3D (before making 2D projection)
     start = time.time()
     print('Doing spatial search...')
-    hsml = get_hsml(dx[:,0], dx[:,1], dx[:,2])  # in rhalfs
+    hsml = get_hsml(dx[:,0], dx[:,1], dx[:,2], num_neighbors)  # in rhalfs
     print('Time: %g s.' % (time.time() - start))
 
     # Transform particle positions according to 'proj_kind' (2D projection)
@@ -368,24 +368,24 @@ if __name__ == '__main__':
         codedir = sys.argv[7]
         snapnum = int(sys.argv[8])
         proj_kind = sys.argv[9]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
-        use_cf00 = bool(int(sys.argv[10]))
-        nprocesses = int(sys.argv[11])
+        num_neighbors = int(sys.argv[10])  # for adaptive smoothing; usually 16
+        use_cf00 = bool(int(sys.argv[11]))
+        nprocesses = int(sys.argv[12])
     except:
         print('Arguments: suite basedir amdir filename_filters ' + 
               'stellar_photometrics_dir writedir codedir snapnum ' +
-              'proj_kind use_cf00 nprocesses')
+              'proj_kind num_neighbors use_cf00 nprocesses')
         sys.exit()
 
     # ~ max_softening_length = 0.5  # kpc/h
     num_rhalfs = 10.0  # on each side from the center
-    num_neighbors = 16  # for adaptive smoothing
     arcsec_per_pixel = 0.258  # Pan-STARRS PS1
 
     # Save images here
     if use_cf00:
-        synthdir = '%s/snapnum_%03d/%s_cf00' % (writedir, snapnum, proj_kind)
+        synthdir = '%s/snapnum_%03d/%s_%d_cf00' % (writedir, snapnum, proj_kind, num_neighbors)
     else:
-        synthdir = '%s/snapnum_%03d/%s' % (writedir, snapnum, proj_kind)
+        synthdir = '%s/snapnum_%03d/%s_%d' % (writedir, snapnum, proj_kind, num_neighbors)
     datadir = '%s/data' % (synthdir)
     if not os.path.lexists(datadir):
         os.makedirs(datadir)
