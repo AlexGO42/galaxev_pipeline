@@ -379,7 +379,7 @@ if __name__ == '__main__':
 
     # ~ max_softening_length = 0.5  # kpc/h
     num_rhalfs = 10.0  # on each side from the center
-    arcsec_per_pixel = 0.258  # Pan-STARRS PS1
+    arcsec_per_pixel = 0.25  # Chambers et al. (2016)
 
     # Save images here
     if use_cf00:
