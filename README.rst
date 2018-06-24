@@ -19,7 +19,7 @@ This code has two main stages:
 - ``create_images.py`` : Once the magnitude tables have been calculated,
   this program generates synthetic images for each broadband filter at a
   given pixel scale, implementing an adaptive smoothing length equal to
-  the 16th nearest neighbor (e.g. Torrey et al. 2015).
+  the Nth nearest neighbor (usually N=16, e.g. Torrey et al. 2015).
 
 Requires numpy, matplotlib, scipy, h5py, astropy.
 
@@ -28,7 +28,9 @@ How to use
 
 ** First stage (apparent magnitudes): **
 
-- Go to the BC03 ``src`` directory.
+- Download GALAXEV code from http://www.bruzual.org/~gbruzual/bc03/Updated_version_2013/
+  and compile it using C Shell (csh) and g77.
+- After a successful installation, go to the BC03 ``src`` directory.
 - Switch to C shell:
 
 .. code:: bash
@@ -39,10 +41,10 @@ How to use
 
 .. code:: bash
 
-    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m22_chab_ssp.ised
-    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m32_chab_ssp.ised
+    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_lr_BaSeL_m22_chab_ssp.ised
+    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_lr_BaSeL_m32_chab_ssp.ised
     ...
-    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_hr_stelib_m82_chab_ssp.ised
+    ./ascii_ised /path/to/bc03/Padova1994/chabrier/bc2003_lr_BaSeL_m82_chab_ssp.ised
 
 - Run ``stellar_photometrics.py`` with the appropriate input parameters.
   For convenience, an example batch script has been provided for this purpose:

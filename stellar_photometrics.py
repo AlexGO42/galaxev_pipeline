@@ -11,15 +11,31 @@ import astropy.constants as const
 import cosmology as cosmo
 
 def read_bc03():
-    model_filenames = [
-        'bc2003_hr_stelib_m22_chab_ssp.ised_ASCII',
-        'bc2003_hr_stelib_m32_chab_ssp.ised_ASCII',
-        'bc2003_hr_stelib_m42_chab_ssp.ised_ASCII',
-        'bc2003_hr_stelib_m52_chab_ssp.ised_ASCII',
-        'bc2003_hr_stelib_m62_chab_ssp.ised_ASCII',
-        'bc2003_hr_stelib_m72_chab_ssp.ised_ASCII',
-        'bc2003_hr_stelib_m82_chab_ssp.ised_ASCII',
-    ]
+    """
+    Read single stellar population (SSP) model data from GALAXEV.
+    """
+    if high_resolution:
+        num_wavelengths = 6917
+        model_filenames = [
+            'bc2003_hr_stelib_m22_chab_ssp.ised_ASCII',
+            'bc2003_hr_stelib_m32_chab_ssp.ised_ASCII',
+            'bc2003_hr_stelib_m42_chab_ssp.ised_ASCII',
+            'bc2003_hr_stelib_m52_chab_ssp.ised_ASCII',
+            'bc2003_hr_stelib_m62_chab_ssp.ised_ASCII',
+            'bc2003_hr_stelib_m72_chab_ssp.ised_ASCII',
+            'bc2003_hr_stelib_m82_chab_ssp.ised_ASCII',
+        ]
+    else:
+        num_wavelengths = 1238
+        model_filenames = [
+            'bc2003_lr_BaSeL_m22_chab_ssp.ised_ASCII',
+            'bc2003_lr_BaSeL_m32_chab_ssp.ised_ASCII',
+            'bc2003_lr_BaSeL_m42_chab_ssp.ised_ASCII',
+            'bc2003_lr_BaSeL_m52_chab_ssp.ised_ASCII',
+            'bc2003_lr_BaSeL_m62_chab_ssp.ised_ASCII',
+            'bc2003_lr_BaSeL_m72_chab_ssp.ised_ASCII',
+            'bc2003_lr_BaSeL_m82_chab_ssp.ised_ASCII',
+        ]
     metallicities = np.array([
         0.0001,
         0.0004,
@@ -27,69 +43,55 @@ def read_bc03():
         0.008,
         0.02,
         0.05,
-        0.1,
-    ], dtype=np.float32)
+        0.1
+    ], dtype=np.float64)
     num_metallicities = len(metallicities)  # 7
     num_stellar_ages = 221
-    num_wavelengths_hr = 6917  # original/high resolution
-    datacube_hr = np.zeros(
-        (num_metallicities, num_stellar_ages, num_wavelengths_hr), dtype=np.float64)
+    datacube = np.zeros(
+        (num_metallicities, num_stellar_ages, num_wavelengths), dtype=np.float64)
     
+    # Read and parse ASCII file
     print('Reading BC03 ASCII data...')
     start = time.time()
     for k in range(num_metallicities):
         with open('%s/%s' % (bc03_model_dir, model_filenames[k]), 'r') as f:
             # The first line has the stellar ages
             line = f.readline()
-            stellar_ages = np.array(line.split()[1:], dtype=np.float32)
-            assert len(stellar_ages) == num_stellar_ages
+            words = line.split()
+            stellar_ages = np.array(words[1:], dtype=np.float64)
+            assert len(stellar_ages) == int(words[0]) == num_stellar_ages
             # Next 5 lines are not needed:
             for i in range(5):
                 line = f.readline()
             # The next line has the wavelengths:
             line = f.readline()
-            wavelengths_hr = np.array(line.split()[1:], dtype=np.float64)
-            assert len(wavelengths_hr) == num_wavelengths_hr
+            words = line.split()
+            wavelengths = np.array(words[1:], dtype=np.float64)
+            assert len(wavelengths) == int(words[0]) == num_wavelengths
             # The next 221 lines are spectra
             for j in range(num_stellar_ages):
                 line = f.readline()
-                cur_sed = np.array(line.split()[1:], dtype=np.float32)
-                # There are some extra data points in each line:
-                datacube_hr[k, j, :] = cur_sed[:num_wavelengths_hr]
+                cur_sed = np.array(line.split()[1:], dtype=np.float64)
+                # There are some extra data points in each line (at least
+                # when using the high-resolution stelib data), so we
+                # truncate to the supposed number of wavelengths:
+                datacube[k, j, :] = cur_sed[:num_wavelengths]
             # There are a few more lines after this (with 221 values per line),
             # but I'm not sure what those are.
     print('Time: %g s.' % (time.time() - start))
 
-    if degrade_resolution:
-        # Degrade resolution just to make it similar to my SKIRT runs
-        print('Degrading resolution...')
-        start = time.time()
-        datacube = np.zeros(
-            (num_metallicities, num_stellar_ages, num_wavelengths), dtype=np.float64)
-        for i in range(num_wavelengths):
-            i_hr = np.searchsorted(wavelengths_hr, wavelengths[i]) - 1
-            if (i_hr < 0) or (i_hr + 1 > num_wavelengths_hr - 1):
-                raise Exception('Out of wavelength range.')
-            fraction = (wavelengths[i] - wavelengths_hr[i_hr]) / (wavelengths_hr[i_hr+1] - wavelengths_hr[i_hr])
-            assert (fraction >= 0.0) & (fraction <= 1.0)
-            datacube[:, :, i] = (1.0 - fraction) * datacube_hr[:, :, i_hr] + fraction * datacube_hr[:, :, i_hr+1]
-        print('Time: %g s.' % (time.time() - start))
-
-        return datacube, stellar_ages, metallicities
-
-    else:
-        return datacube_hr, metallicities, stellar_ages, wavelengths_hr
+    return datacube, metallicities, stellar_ages, wavelengths
 
 def apply_cf00(datacube, stellar_ages, wavelengths):
     t_BC = 1e7  # yr
     tau_BC = 1.0
-    tau_c = 0.3
+    tau_ISM = 0.3
     n = -0.7
     lambda_0 = 5500.0  # angstroms
     
     tau_cube = np.zeros_like(datacube)
     tau_cube[:, stellar_ages <= t_BC, :] = tau_BC
-    tau_cube[:, stellar_ages >  t_BC, :] = tau_c
+    tau_cube[:, stellar_ages >  t_BC, :] = tau_ISM
     
     datacube *= np.exp(-tau_cube*(wavelengths[np.newaxis,np.newaxis,:]/lambda_0)**n)
     
@@ -110,7 +112,9 @@ if __name__ == '__main__':
         print('Arguments: suite snapnum writedir bc03_model_dir filter_dir filename_filters codedir use_cf00')
         sys.exit()
 
-    degrade_resolution = False
+    # If True, use high resolution data (at 3 angstrom intervals) in the
+    # wavelength range from 3200 to 9500 angstroms:
+    high_resolution = False
     
     # Get redshift for given snapshot
     redshifts_all = np.loadtxt('%s/Redshifts%s.txt' % (codedir, suite))
@@ -120,21 +124,13 @@ if __name__ == '__main__':
     if not os.path.lexists(writedir):
         os.makedirs(writedir)
 
-    # Get luminosity distance (if redshift too small, use 10 Mpc)
+    # Get luminosity distance (if redshift is too small, use 10 Mpc)
     if z < 2.5e-3:
         d_L = 10.0 * 3.086e22  # 10 Mpc in meters
         print('WARNING: assuming that source is at 10 Mpc.')
     else:
         params = cosmo.CosmologicalParameters(suite=suite)
         d_L = cosmo.luminosity_distance(z, params)  # meters
-
-    if degrade_resolution:
-        print('WARNING: degrading BC03 spectral resolution...')
-        min_wavelength = 3000.0  # angstroms
-        max_wavelength = 10000.0  # angstroms
-        num_wavelengths = 100
-        wavelengths = np.logspace(
-            np.log10(min_wavelength), np.log10(max_wavelength), num_wavelengths)
 
     # Read BC03 model data
     datacube, metallicities, stellar_ages, wavelengths = read_bc03()
