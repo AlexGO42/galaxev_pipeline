@@ -100,49 +100,47 @@ def apply_cf00(datacube, stellar_ages, wavelengths):
 if __name__ == '__main__':
     
     try:
-        suite = sys.argv[1]
-        snapnum = int(sys.argv[2])
-        writedir = sys.argv[3]
-        bc03_model_dir = sys.argv[4]
-        filter_dir = sys.argv[5]
-        filename_filters = sys.argv[6]
-        codedir = sys.argv[7]
-        use_cf00 = bool(int(sys.argv[8]))
+        use_z = float(sys.argv[1])
+        writedir = sys.argv[2]
+        bc03_model_dir = sys.argv[3]
+        filter_dir = sys.argv[4]
+        filename_filters = sys.argv[5]
+        codedir = sys.argv[6]
+        use_cf00 = bool(int(sys.argv[7]))
     except:
-        print('Arguments: suite snapnum writedir bc03_model_dir filter_dir filename_filters codedir use_cf00')
+        print('Arguments: use_z writedir bc03_model_dir filter_dir filename_filters codedir use_cf00')
         sys.exit()
 
     # If True, use high resolution data (at 3 angstrom intervals) in the
     # wavelength range from 3200 to 9500 angstroms:
     high_resolution = False
-    
-    # Get redshift for given snapshot
-    redshifts_all = np.loadtxt('%s/Redshifts%s.txt' % (codedir, suite))
-    z = redshifts_all[snapnum]
 
     # Make sure write directory exists
     if not os.path.lexists(writedir):
         os.makedirs(writedir)
 
     # Get luminosity distance (if redshift is too small, use 10 Mpc)
-    if z < 2.5e-3:
+    if use_z < 2.5e-3:
+        use_z = 0.0
         d_L = 10.0 * 3.086e22  # 10 Mpc in meters
-        print('WARNING: assuming that source is at 10 Mpc.')
+        print('WARNING: Assuming that source is at 10 Mpc...')
     else:
-        params = cosmo.CosmologicalParameters(suite=suite)
-        d_L = cosmo.luminosity_distance(z, params)  # meters
+        # For simplicity, assume IllustrisTNG cosmological parameters,
+        # which correspond to recent Planck measurements.
+        params = cosmo.CosmologicalParameters(suite='IllustrisTNG')
+        d_L = cosmo.luminosity_distance(use_z, params)  # meters
 
     # Read BC03 model data
     datacube, metallicities, stellar_ages, wavelengths = read_bc03()
     num_stellar_ages = len(stellar_ages)
     num_metallicities = len(metallicities)
-    
+
     # Apply Charlot & Fall (2000) model
     if use_cf00:
         datacube = apply_cf00(datacube, stellar_ages, wavelengths)
-    
+
     # Shift rest-frame wavelengths to observer-frame; convert to meters
-    wavelengths *= (1.0 + z) * 1e-10  # m
+    wavelengths *= (1.0 + use_z) * 1e-10  # m
     
     # AB magnitude system in wavelength units
     FAB_nu = 3631.0 * 1e-26  # W/m^2/Hz
@@ -157,12 +155,12 @@ if __name__ == '__main__':
     # Read filter names
     with open(filename_filters, 'r') as f:
         filter_names = list(map(lambda s: s.strip('\n'), f.readlines()))
-    
+
     # Write output to this file
     if use_cf00:
-        f = h5py.File('%s/stellar_photometrics_%03d_cf00.hdf5' % (writedir, snapnum), 'w')
+        f = h5py.File('%s/stellar_photometrics_cf00.hdf5' % (writedir), 'w')
     else:
-        f = h5py.File('%s/stellar_photometrics_%03d.hdf5' % (writedir, snapnum), 'w')
+        f = h5py.File('%s/stellar_photometrics.hdf5' % (writedir), 'w')
     f.create_dataset('metallicities', data=metallicities)
     f.create_dataset('stellar_ages', data=stellar_ages)
 
@@ -189,20 +187,22 @@ if __name__ == '__main__':
                 # (1+z) factor comes from the stretching of dlambda
                 # (spreading of photons in wavelength)
                 numerator = it.trapz(
-                    F_lambda / (1.0 + z) * wavelengths * R, x=wavelengths)
+                    F_lambda / (1.0 + use_z) * wavelengths * R, x=wavelengths)
                 magnitudes[k, j] = -2.5 * np.log10(numerator / denominator)
 
         dset = f.create_dataset(filter_name, data=magnitudes)
 
-        # Note that this denominator is proportional to the reference flux
-        # in counts/s (assuming that the filter response is given in m^2 counts/photon; otherwise ),
-        # which we store for convenience.
+        # Note that this denominator is proportional to the reference flux,
+        # for each filter, which we store for convenience.
         # If the filter response is given as a capture cross-section in
-        # m^2 counts/photon (e.g. Pan-STARRS), then the units are photons/s.
+        # m^2 counts/photon (e.g. Pan-STARRS), then the units are counts/s.
         # Otherwise, if the filter response is an adimensional quantum efficiency,
         # then the units are photons/s/m^2.
         zeropoint_phot = float(denominator) / (const.h.value * const.c.value)  # photons/s
         dset.attrs['zeropoint_phot'] = zeropoint_phot
+        # We also store the assumed redshift and luminosity distance:
+        dset.attrs['use_z'] = use_z
+        dset.attrs['d_L'] = d_L
 
         print('Finished for filter %s.' % (filter_name))
 
