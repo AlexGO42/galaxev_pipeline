@@ -309,13 +309,6 @@ def create_file(subfind_id):
     # Transform particle positions according to 'proj_kind' (2D projection)
     dx_new = transform(dx, jstar_direction[subfind_id], proj_kind=proj_kind)
 
-    # ~ # Impose minimum smoothing length equal to 2.8 times the (Plummer-equivalent)
-    # ~ # gravitational softening length:
-    # ~ softening_length_rhalfs = softening_length / rhalf[subfind_id]
-    # ~ eps_to_hsml = 2.8
-    # ~ hsml = np.where(hsml >= eps_to_hsml * softening_length_rhalfs, hsml,
-                    # ~ eps_to_hsml * softening_length_rhalfs)
-
     # Store images here
     image = np.zeros((num_filters,npixels,npixels), dtype=np.float32)
 
@@ -328,24 +321,19 @@ def create_file(subfind_id):
         # Store in array
         image[i,:,:] = H
 
-    # ~ # Number of particles per pixel
-    # ~ counts_map = adaptive_smoothing(dx_new[:,0], dx_new[:,1], hsml, xcenters, ycenters,
-                                    # ~ weights=None)
-
     # Convert area units from rhalf^{-2} to pixel_size^{-2}
     pixel_size_rhalfs =  2.0 * num_rhalfs / float(npixels)  # in rhalfs
     image *= pixel_size_rhalfs**2
-    # ~ counts_map *= pixel_size_rhalfs**2
 
     # Create some header attributes
     header = fits.Header()
     header["BUNIT"] = ("counts/s/pixel", "Unit of the array values")
-    header["CDELT1"] = (kpc_h_per_pixel / h / (1.0 + z), "Coordinate increment along X-axis")
-    header["CTYPE1"] = ("kpc", "Physical units of the X-axis increment")
-    header["CDELT2"] = (kpc_h_per_pixel / h / (1.0 + z), "Coordinate increment along Y-axis")
-    header["CTYPE2"] = ("kpc", "Physical units of the Y-axis increment")
+    header["CDELT1"] = (kpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along X-axis")
+    header["CTYPE1"] = ("pc", "Physical units of the X-axis increment")
+    header["CDELT2"] = (kpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along Y-axis")
+    header["CTYPE2"] = ("pc", "Physical units of the Y-axis increment")
     header["PIXSCALE"] = (arcsec_per_pixel, "Pixel size in arcsec")
-    header["Z"] = (z, "Redshift of the source")
+    header["USE_Z"] = (use_z, "Observed redshift of the source")
     for k in range(num_filters):
         header["FILTER%d" % (k)] = (filter_names[k], "Broadband filter index = %d" % (k))
 
@@ -370,22 +358,21 @@ if __name__ == '__main__':
         proj_kind = sys.argv[9]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
         num_neighbors = int(sys.argv[10])  # for adaptive smoothing; usually 16
         use_cf00 = bool(int(sys.argv[11]))
-        nprocesses = int(sys.argv[12])
+        mock_type = sys.argv[12]
+        nprocesses = int(sys.argv[13])
     except:
         print('Arguments: suite basedir amdir filename_filters ' + 
               'stellar_photometrics_dir writedir codedir snapnum ' +
-              'proj_kind num_neighbors use_cf00 nprocesses')
+              'proj_kind num_neighbors use_cf00 mock_type nprocesses')
         sys.exit()
 
-    # ~ max_softening_length = 0.5  # kpc/h
     num_rhalfs = 10.0  # on each side from the center
-    arcsec_per_pixel = 0.25  # Chambers et al. (2016)
 
     # Save images here
     if use_cf00:
-        synthdir = '%s/snapnum_%03d/%s_%d_cf00' % (writedir, snapnum, proj_kind, num_neighbors)
+        synthdir = '%s/snapnum_%03d/galaxev/%s_cf00' % (writedir, snapnum, proj_kind)
     else:
-        synthdir = '%s/snapnum_%03d/%s_%d' % (writedir, snapnum, proj_kind, num_neighbors)
+        synthdir = '%s/snapnum_%03d/galaxev/%s' % (writedir, snapnum, proj_kind)
     datadir = '%s/data' % (synthdir)
     if not os.path.lexists(datadir):
         os.makedirs(datadir)
@@ -402,26 +389,33 @@ if __name__ == '__main__':
         z = header['Redshift']
         box_size = header['BoxSize']
 
-    # ~ # Softening length at current redshift
-    # ~ if z < 1:
-        # ~ softening_length = (1.0 + z) * max_softening_length  # comoving kpc/h
-    # ~ else:
-        # ~ softening_length = 2.0 * max_softening_length  # comoving kpc/h
-
-    # Get angular-diameter distance (if redshift is too small, assume source is at 10 Mpc)
-    if z < 2.5e-3:
-        d_A_kpc_h = 10000.0 * h
-        print('WARNING: assuming that source is at 10 Mpc.')
-    else:
+    # Get pixel scale (both angular and physical) and define "use_z",
+    # which is the redshift at which the galaxy is assumed to be observed,
+    # but is not necessarily equal to the intrinsic redshift "z" of the galaxy
+    # (in particular, use_z = 0 for rest-frame photometry).
+    if mock_type == 'generic':
+        use_z = 0.0  # Rest-frame
+        kpc_h_per_pixel = 0.25  # Fixed pixel scale in ckpc/h
+        # Camera is 10 Mpc away from source in physical units:
+        d_A_kpc_h = 10000.0 * h * (1.0 + z)  # ckpc/h
+        rad_per_pixel = kpc_h_per_pixel / d_A_kpc_h
+        arcsec_per_pixel = rad_per_pixel * (3600.0 * 180.0 / np.pi)
+    elif mock_type == 'pogs':
+        # For now, limit to z = 0.0485
+        if suite == 'Illustris':
+            assert snapnum == 131
+        elif suite == 'IllustrisTNG':
+            assert snapnum == 95
+        use_z = z
+        arcsec_per_pixel = 0.25  # Chambers et al. (2016)
+        rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
+        # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
-        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(z, params) * 1000.0 * h  # physical kpc/h
-
-    # Get pixel scale at redshift of interest
-    rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
-    kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h * (1.0+z)  # comoving kpc/h
-    print('rad_per_pixel =', rad_per_pixel)
-    print('d_A_kpc_h =', d_A_kpc_h)
-    print('kpc_h_per_pixel =', kpc_h_per_pixel)
+        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
+    else:
+        print('mock_type not understood.')
+        sys.exit()
 
     # Load subhalo info
     start = time.time()
@@ -444,6 +438,11 @@ if __name__ == '__main__':
 
     # Get list of relevant Subfind IDs
     subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar)
+    # Print Subfind IDs to a file
+    filename = '%s/subfind_ids.txt' % (synthdir)
+    with open(filename, 'w') as f:
+        for sub_index in subfind_ids:
+            f.write('%d\n' % (sub_index))
 
     if nprocesses == 1:
         for subfind_id in subfind_ids:

@@ -85,7 +85,6 @@ Notes
   if the angular momentum vectors are not available, the code can still
   work with minimal modification (e.g., setting ``jvec = None``, etc.).
 
-
 Author
 ------
 

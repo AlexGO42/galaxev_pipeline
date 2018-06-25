@@ -100,15 +100,16 @@ def apply_cf00(datacube, stellar_ages, wavelengths):
 if __name__ == '__main__':
     
     try:
-        use_z = float(sys.argv[1])
+        suite = sys.argv[1]
         writedir = sys.argv[2]
         bc03_model_dir = sys.argv[3]
         filter_dir = sys.argv[4]
         filename_filters = sys.argv[5]
         codedir = sys.argv[6]
         use_cf00 = bool(int(sys.argv[7]))
+        use_z = float(sys.argv[8])
     except:
-        print('Arguments: use_z writedir bc03_model_dir filter_dir filename_filters codedir use_cf00')
+        print('Arguments: suite writedir bc03_model_dir filter_dir filename_filters codedir use_cf00 use_z')
         sys.exit()
 
     # If True, use high resolution data (at 3 angstrom intervals) in the
@@ -125,9 +126,7 @@ if __name__ == '__main__':
         d_L = 10.0 * 3.086e22  # 10 Mpc in meters
         print('WARNING: Assuming that source is at 10 Mpc...')
     else:
-        # For simplicity, assume IllustrisTNG cosmological parameters,
-        # which correspond to recent Planck measurements.
-        params = cosmo.CosmologicalParameters(suite='IllustrisTNG')
+        params = cosmo.CosmologicalParameters(suite=suite)
         d_L = cosmo.luminosity_distance(use_z, params)  # meters
 
     # Read BC03 model data

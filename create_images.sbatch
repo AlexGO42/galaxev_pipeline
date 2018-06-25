@@ -2,9 +2,9 @@
 
 #SBATCH --mail-user=vrg@jhu.edu
 #SBATCH --mail-type=ALL
-#SBATCH -J img_TNG_95_xy_32_cf00
-#SBATCH -o img_TNG_95_xy_32_cf00.out
-#SBATCH -e img_TNG_95_xy_32_cf00.err
+#SBATCH -J pogs_TNG_cf00
+#SBATCH -o pogs_TNG_cf00.out
+#SBATCH -e pogs_TNG_cf00.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=64
 #SBATCH -t 7-00:00:00
@@ -27,16 +27,18 @@ SNAPNUM=95
 #~ SIMULATION=L75n1820FP
 #~ SNAPNUM=131
 
+MOCK_TYPE=pogs
+PROJ_KIND=xy
+NGB=16
+USE_CF00=1
+
 BASEDIR=/n/${FILESYSTEM}/${SUITE}/Runs/${SIMULATION}/output
 AMDIR=/n/hernquistfs3/vrodrigu/AngularMomentum/output/${SUITE}/${SIMULATION}
 FILENAME_FILTERS=/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt
-STELLAR_PHOTOMETRICS_DIR=/n/hernquistfs3/vrodrigu/SyntheticImages/galaxev/${SUITE}/stellar_photometrics
-WRITEDIR=/n/hernquistfs3/vrodrigu/SyntheticImages/galaxev/${SUITE}/${SIMULATION}
+STELLAR_PHOTOMETRICS_DIR=/n/hernquistfs3/vrodrigu/SyntheticImages/${MOCK_TYPE}/${SUITE}
+WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
 CODEDIR=/n/home10/vrodrigu/SyntheticImages/galaxev_pipeline
-PROJ_KIND=xy
-NGB=32
-USE_CF00=1
 # Must match "--ntasks-per-node":
 NPROCESSES=64
 
-python ${CODEDIR}/create_images.py ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${PROJ_KIND} ${NGB} ${USE_CF00} ${NPROCESSES}
+python ${CODEDIR}/create_images.py ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${PROJ_KIND} ${NGB} ${USE_CF00} ${MOCK_TYPE} ${NPROCESSES}
