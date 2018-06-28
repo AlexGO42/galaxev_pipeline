@@ -356,17 +356,16 @@ if __name__ == '__main__':
         codedir = sys.argv[7]
         snapnum = int(sys.argv[8])
         proj_kind = sys.argv[9]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
-        num_neighbors = int(sys.argv[10])  # for adaptive smoothing; usually 16
-        use_cf00 = bool(int(sys.argv[11]))
-        mock_type = sys.argv[12]
-        nprocesses = int(sys.argv[13])
+        num_neighbors = int(sys.argv[10])  # for adaptive smoothing, usually 32
+        num_rhalfs = float(sys.argv[11])  # on each side from the center, usually 15
+        use_cf00 = bool(int(sys.argv[12]))
+        mock_type = sys.argv[13]
+        nprocesses = int(sys.argv[14])
     except:
         print('Arguments: suite basedir amdir filename_filters ' + 
               'stellar_photometrics_dir writedir codedir snapnum ' +
-              'proj_kind num_neighbors use_cf00 mock_type nprocesses')
+              'proj_kind num_neighbors num_rhalfs use_cf00 mock_type nprocesses')
         sys.exit()
-
-    num_rhalfs = 10.0  # on each side from the center
 
     # Save images here
     if use_cf00:
