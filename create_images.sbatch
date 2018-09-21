@@ -2,9 +2,9 @@
 
 #SBATCH --mail-user=vrg@jhu.edu
 #SBATCH --mail-type=ALL
-#SBATCH -J pogs_TNG_cf00
-#SBATCH -o pogs_TNG_cf00.out
-#SBATCH -e pogs_TNG_cf00.err
+#SBATCH -J sdss_TNG_cf00
+#SBATCH -o sdss_TNG_cf00.out
+#SBATCH -e sdss_TNG_cf00.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=64
 #SBATCH -t 7-00:00:00
@@ -27,15 +27,19 @@ SNAPNUM=95
 #~ SIMULATION=L75n1820FP
 #~ SNAPNUM=131
 
-MOCK_TYPE=pogs
+MOCK_TYPE=sdss  # pogs, sdss, generic
 PROJ_KIND=xy
 NGB=32
-NUM_RHALFS=15
+NUM_RHALFS=7.5
 USE_CF00=1
 
 BASEDIR=/n/${FILESYSTEM}/${SUITE}/Runs/${SIMULATION}/output
 AMDIR=/n/hernquistfs3/vrodrigu/AngularMomentum/output/${SUITE}/${SIMULATION}
-FILENAME_FILTERS=/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt
+if [ ${MOCK_TYPE} = "sdss" ]; then
+  FILENAME_FILTERS=/n/home10/vrodrigu/SyntheticImages/broadband_filters/sloan.txt
+else
+  FILENAME_FILTERS=/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt
+fi
 STELLAR_PHOTOMETRICS_DIR=/n/hernquistfs3/vrodrigu/SyntheticImages/${MOCK_TYPE}/${SUITE}
 WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
 CODEDIR=/n/home10/vrodrigu/SyntheticImages/galaxev_pipeline

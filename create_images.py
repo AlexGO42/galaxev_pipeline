@@ -357,7 +357,7 @@ if __name__ == '__main__':
         snapnum = int(sys.argv[8])
         proj_kind = sys.argv[9]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
         num_neighbors = int(sys.argv[10])  # for adaptive smoothing, usually 32
-        num_rhalfs = float(sys.argv[11])  # on each side from the center, usually 15
+        num_rhalfs = float(sys.argv[11])  # on each side from the center, usually 7.5
         use_cf00 = bool(int(sys.argv[12]))
         mock_type = sys.argv[13]
         nprocesses = int(sys.argv[14])
@@ -407,6 +407,19 @@ if __name__ == '__main__':
             assert snapnum == 95
         use_z = z
         arcsec_per_pixel = 0.25  # Chambers et al. (2016)
+        rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
+        # Note that the angular-diameter distance is expressed in comoving coordinates:
+        params = cosmo.CosmologicalParameters(suite=suite)
+        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
+    elif mock_type == 'sdss':
+        # For now, limit to z = 0.0485
+        if suite == 'Illustris':
+            assert snapnum == 131
+        elif suite == 'IllustrisTNG':
+            assert snapnum == 95
+        use_z = z
+        arcsec_per_pixel = 0.396  # https://www.sdss.org/instruments/camera/
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)

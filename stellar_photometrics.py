@@ -197,7 +197,7 @@ if __name__ == '__main__':
         # m^2 counts/photon (e.g. Pan-STARRS), then the units are counts/s.
         # Otherwise, if the filter response is an adimensional quantum efficiency,
         # then the units are photons/s/m^2.
-        zeropoint_phot = float(denominator) / (const.h.value * const.c.value)  # photons/s
+        zeropoint_phot = float(denominator) / (const.h.value * const.c.value)
         dset.attrs['zeropoint_phot'] = zeropoint_phot
         # We also store the assumed redshift and luminosity distance:
         dset.attrs['use_z'] = use_z
