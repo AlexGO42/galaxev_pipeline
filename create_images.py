@@ -400,12 +400,11 @@ if __name__ == '__main__':
         rad_per_pixel = kpc_h_per_pixel / d_A_kpc_h
         arcsec_per_pixel = rad_per_pixel * (3600.0 * 180.0 / np.pi)
     elif mock_type == 'pogs':
-        # For now, limit to z = 0.0485
+        use_z = 0.0485236299818  # corresponds to snapnum_last - 4
         if suite == 'Illustris':
-            assert snapnum == 131
+            assert snapnum >= 131
         elif suite == 'IllustrisTNG':
-            assert snapnum == 95
-        use_z = z
+            assert snapnum >= 95
         arcsec_per_pixel = 0.25  # Chambers et al. (2016)
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
@@ -413,12 +412,11 @@ if __name__ == '__main__':
         d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
         kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
     elif mock_type == 'sdss':
-        # For now, limit to z = 0.0485
+        use_z = 0.0485236299818  # corresponds to snapnum_last - 4
         if suite == 'Illustris':
-            assert snapnum == 131
+            assert snapnum >= 131
         elif suite == 'IllustrisTNG':
-            assert snapnum == 95
-        use_z = z
+            assert snapnum >= 95
         arcsec_per_pixel = 0.396  # https://www.sdss.org/instruments/camera/
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
