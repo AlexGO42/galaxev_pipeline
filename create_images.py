@@ -271,13 +271,19 @@ def create_file(subfind_id):
     # Load stellar particle info
     start = time.time()
     print('Loading info from snapshot...')
-    cat_sub = il.snapshot.loadSubhalo(
-        basedir, snapnum, subfind_id, parttype_stars,
-        fields=['Coordinates', 'GFM_InitialMass', 'GFM_Metallicity', 'GFM_StellarFormationTime'])
-    all_pos = cat_sub['Coordinates']  # comoving kpc/h
-    all_initial_masses = cat_sub['GFM_InitialMass']
-    all_metallicities = cat_sub['GFM_Metallicity']
-    all_formtimes = cat_sub['GFM_StellarFormationTime']  # actually the scale factor
+    if use_fof:
+        sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
+        cat = il.snapshot.loadHalo(
+            basedir, snapnum, sub_gr_nr[subfind_id], parttype_stars,
+            fields=['Coordinates', 'GFM_InitialMass', 'GFM_Metallicity', 'GFM_StellarFormationTime'])
+    else:
+        cat = il.snapshot.loadSubhalo(
+            basedir, snapnum, subfind_id, parttype_stars,
+            fields=['Coordinates', 'GFM_InitialMass', 'GFM_Metallicity', 'GFM_StellarFormationTime'])
+    all_pos = cat['Coordinates']  # comoving kpc/h
+    all_initial_masses = cat['GFM_InitialMass']
+    all_metallicities = cat['GFM_Metallicity']
+    all_formtimes = cat['GFM_StellarFormationTime']  # actually the scale factor
     print('Time: %f s.' % (time.time() - start))
 
     # Remove wind particles
@@ -294,7 +300,7 @@ def create_file(subfind_id):
     stellar_ages_yr = (cosmo.t_Gyr(z, params) - cosmo.t_Gyr(z_form, params)) * 1e9
 
     # Periodic boundary conditions
-    dx = pos[:] - pos[0]
+    dx = pos[:] - sub_pos[subfind_id]
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
 
     # Normalize by rhalf
@@ -358,20 +364,23 @@ if __name__ == '__main__':
         proj_kind = sys.argv[9]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
         num_neighbors = int(sys.argv[10])  # for adaptive smoothing, usually 32
         num_rhalfs = float(sys.argv[11])  # on each side from the center, usually 7.5
-        use_cf00 = bool(int(sys.argv[12]))
-        mock_type = sys.argv[13]
-        nprocesses = int(sys.argv[14])
+        use_fof = bool(int(sys.argv[12]))  # If True, load particles from FoF group
+        use_cf00 = bool(int(sys.argv[13]))  # If True, apply Charlot & Fall (2000)
+        mock_type = sys.argv[14]  # 'pogs', 'sdss', etc.
+        nprocesses = int(sys.argv[15])
     except:
         print('Arguments: suite basedir amdir filename_filters ' + 
               'stellar_photometrics_dir writedir codedir snapnum ' +
-              'proj_kind num_neighbors num_rhalfs use_cf00 mock_type nprocesses')
+              'proj_kind num_neighbors num_rhalfs use_cf00 use_fof ' + 
+              'mock_type nprocesses')
         sys.exit()
 
     # Save images here
+    synthdir = '%s/snapnum_%03d/galaxev/%s' % (writedir, snapnum, proj_kind)
+    if use_fof:
+        synthdir += '_fof'
     if use_cf00:
-        synthdir = '%s/snapnum_%03d/galaxev/%s_cf00' % (writedir, snapnum, proj_kind)
-    else:
-        synthdir = '%s/snapnum_%03d/galaxev/%s' % (writedir, snapnum, proj_kind)
+        synthdir += '_cf00'
     datadir = '%s/data' % (synthdir)
     if not os.path.lexists(datadir):
         os.makedirs(datadir)
@@ -432,6 +441,7 @@ if __name__ == '__main__':
     print('Loading subhalo info...')
     mstar = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloMassType'])[:, parttype_stars]
     rhalf = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
+    sub_pos = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloPos'])
     with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
         jstar_direction = f['jstar_direction'][:]
     nsubs = len(mstar)

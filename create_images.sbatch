@@ -1,49 +1,48 @@
 #!/bin/bash
 
-#SBATCH --mail-user=vrg@jhu.edu
+#SBATCH --mail-user=v.rodriguez@irya.unam.mx
 #SBATCH --mail-type=ALL
-#SBATCH -J sdss_TNG_cf00
-#SBATCH -o sdss_TNG_cf00.out
-#SBATCH -e sdss_TNG_cf00.err
+#SBATCH -J sdss_fof
+#SBATCH -o sdss_fof.out
+#SBATCH -e sdss_fof.err
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=64
-#SBATCH -t 7-00:00:00
-#SBATCH -p hernquist
+#SBATCH --ntasks-per-node=40
+#SBATCH -t 2-00:00:00
+#SBATCH -p p.48h
 #SBATCH --exclusive
-#SBATCH --mem=240000
+#SBATCH --mem=120000
 
 # OMP_NUM_THREADS controls the number of threads your application uses:
 export OMP_NUM_THREADS=$SLURM_NTASKS_PER_NODE
 
 # IllustrisTNG
-FILESYSTEM=hernquistfs3
 SUITE=IllustrisTNG
 SIMULATION=L75n1820TNG
-SNAPNUM=95
+SNAPNUM=99
+NUM_RHALFS=7.5
 
 #~ # Illustris
-#~ FILESYSTEM=ghernquist
 #~ SUITE=Illustris
 #~ SIMULATION=L75n1820FP
-#~ SNAPNUM=131
+#~ SNAPNUM=135
+#~ NUM_RHALFS=5.0
 
 MOCK_TYPE=sdss  # pogs, sdss, generic
 PROJ_KIND=xy
 NGB=32
-NUM_RHALFS=7.5
-USE_CF00=1
+USE_CF00=0
+USE_FOF=1
 
-BASEDIR=/n/${FILESYSTEM}/${SUITE}/Runs/${SIMULATION}/output
-AMDIR=/n/hernquistfs3/vrodrigu/AngularMomentum/output/${SUITE}/${SIMULATION}
+BASEDIR=/isaac/ptmp/gc/apillepi/sims.mirror_TNG/${SIMULATION}/output
+AMDIR=/u/vrg/AngularMomentum/output/${SUITE}/${SIMULATION}
 if [ ${MOCK_TYPE} = "sdss" ]; then
-  FILENAME_FILTERS=/n/home10/vrodrigu/SyntheticImages/broadband_filters/sloan.txt
+  FILENAME_FILTERS=/u/vrg/SyntheticImages/src/broadband_filters/sloan.txt
 else
-  FILENAME_FILTERS=/n/home10/vrodrigu/SyntheticImages/broadband_filters/panstarrs.txt
+  FILENAME_FILTERS=/u/vrg/SyntheticImages/src/broadband_filters/panstarrs.txt
 fi
-STELLAR_PHOTOMETRICS_DIR=/n/hernquistfs3/vrodrigu/SyntheticImages/${MOCK_TYPE}/${SUITE}
+STELLAR_PHOTOMETRICS_DIR=/u/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
 WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
-CODEDIR=/n/home10/vrodrigu/SyntheticImages/galaxev_pipeline
-# Must match "--ntasks-per-node":
-NPROCESSES=64
+CODEDIR=/u/vrg/SyntheticImages/src/galaxev_pipeline
+NPROCESSES=${SLURM_NTASKS_PER_NODE}
 
-python ${CODEDIR}/create_images.py ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${PROJ_KIND} ${NGB} ${NUM_RHALFS} ${USE_CF00} ${MOCK_TYPE} ${NPROCESSES}
+python ${CODEDIR}/create_images.py ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${PROJ_KIND} ${NGB} ${NUM_RHALFS} ${USE_FOF} ${USE_CF00} ${MOCK_TYPE} ${NPROCESSES}
