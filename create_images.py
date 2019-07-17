@@ -140,7 +140,7 @@ def get_hsml(x, y, z, num_neighbors):
 
     return hsml
 
-def adaptive_smoothing(x, y, hsml, xcenters, ycenters, weights=None):
+def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, weights=None):
     """
     Do adaptive smoothing similar to Torrey et al. (2015).
 
@@ -256,7 +256,17 @@ def get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar):
 
     return subfind_ids
 
-def create_file(subfind_id):
+def wrapper_fixed_num_rhalfs(subfind_id):
+    """Helper function to keep a single parameter (subfind_id)."""
+    npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
+    create_file(subfind_id, num_rhalfs, npixels)
+
+def wrapper_fixed_npixels(subfind_id):
+    """Helper function to keep a single parameter (subfind_id)."""
+    num_rhalfs = npixels*kpc_h_per_pixel/(2.0*rhalf[subfind_id])
+    create_file(subfind_id, num_rhalfs, npixels)
+
+def create_file(subfind_id, num_rhalfs, npixels):
     """
     Create (adaptively smoothed) images for the chosen filters.
     """
@@ -323,7 +333,7 @@ def create_file(subfind_id):
         fluxes = get_fluxes(
             initial_masses_Msun, metallicities, stellar_ages_yr, filter_name)
         H = adaptive_smoothing(
-            dx_new[:,0], dx_new[:,1], hsml, xcenters, ycenters, weights=fluxes)
+            dx_new[:,0], dx_new[:,1], hsml, xcenters, ycenters, num_rhalfs, weights=fluxes)
         # Store in array
         image[i,:,:] = H
 
@@ -361,19 +371,26 @@ if __name__ == '__main__':
         writedir = sys.argv[6]
         codedir = sys.argv[7]
         snapnum = int(sys.argv[8])
-        proj_kind = sys.argv[9]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
-        num_neighbors = int(sys.argv[10])  # for adaptive smoothing, usually 32
-        num_rhalfs = float(sys.argv[11])  # on each side from the center, usually 7.5
-        use_fof = bool(int(sys.argv[12]))  # If True, load particles from FoF group
-        use_cf00 = bool(int(sys.argv[13]))  # If True, apply Charlot & Fall (2000)
-        mock_type = sys.argv[14]  # 'pogs', 'sdss', etc.
-        nprocesses = int(sys.argv[15])
+        use_z = float(sys.argv[9])  # if -1, use intrinsic snapshot redshift
+        proj_kind = sys.argv[10]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
+        num_neighbors = int(sys.argv[11])  # for adaptive smoothing, usually 32
+        num_rhalfs = float(sys.argv[12])  # on each side from the center, usually 7.5
+        npixels = int(sys.argv[13])  # total # of pixels on each side, usually -1
+        use_fof = bool(int(sys.argv[14]))  # If True, load particles from FoF group
+        use_cf00 = bool(int(sys.argv[15]))  # If True, apply Charlot & Fall (2000)
+        mock_type = sys.argv[16]  # 'pogs', 'sdss', etc.
+        nprocesses = int(sys.argv[17])
     except:
         print('Arguments: suite basedir amdir filename_filters ' + 
-              'stellar_photometrics_dir writedir codedir snapnum ' +
-              'proj_kind num_neighbors num_rhalfs use_cf00 use_fof ' + 
+              'stellar_photometrics_dir writedir codedir snapnum use_z ' +
+              'proj_kind num_neighbors num_rhalfs npixels use_cf00 use_fof ' + 
               'mock_type nprocesses')
         sys.exit()
+
+    # Check input
+    if num_rhalfs > 0 and npixels > 0:
+        raise Exception('Only one of num_rhalfs and npixels should be defined ' +
+                        '(the other should be -1).')
 
     # Save images here
     synthdir = '%s/snapnum_%03d/galaxev/%s' % (writedir, snapnum, proj_kind)
@@ -397,23 +414,28 @@ if __name__ == '__main__':
         z = header['Redshift']
         box_size = header['BoxSize']
 
+    # Set redshift at which the galaxy is observed (unless specified)
+    if use_z == -1:
+        use_z = z
+
     # Get pixel scale (both angular and physical) and define "use_z",
     # which is the redshift at which the galaxy is assumed to be observed,
     # but is not necessarily equal to the intrinsic redshift "z" of the galaxy
     # (in particular, use_z = 0 for rest-frame photometry).
     if mock_type == 'generic':
         use_z = 0.0  # Rest-frame
+        print('WARNING: setting use_z=0.0 (rest-frame photometry).')
         kpc_h_per_pixel = 0.25  # Fixed pixel scale in ckpc/h
         # Camera is 10 Mpc away from source in physical units:
         d_A_kpc_h = 10000.0 * h * (1.0 + z)  # ckpc/h
         rad_per_pixel = kpc_h_per_pixel / d_A_kpc_h
         arcsec_per_pixel = rad_per_pixel * (3600.0 * 180.0 / np.pi)
     elif mock_type == 'pogs':
-        use_z = 0.0485236299818  # corresponds to snapnum_last - 4
-        if suite == 'Illustris':
-            assert snapnum >= 131
-        elif suite == 'IllustrisTNG':
-            assert snapnum >= 95
+        # If at the last snapshot, set ad hoc redshift
+        if ((suite == 'Illustris' and snapnum == 135) or
+            (suite == 'IllustrisTNG' and snapnum == 99)):
+                use_z = 0.0485236299818  # corresponds to snapnum_last - 4
+                print('WARNING: Setting use_z=%g.' % (use_z))
         arcsec_per_pixel = 0.25  # Chambers et al. (2016)
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
@@ -421,11 +443,11 @@ if __name__ == '__main__':
         d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
         kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
     elif mock_type == 'sdss':
-        use_z = 0.0485236299818  # corresponds to snapnum_last - 4
-        if suite == 'Illustris':
-            assert snapnum >= 131
-        elif suite == 'IllustrisTNG':
-            assert snapnum >= 95
+        # If at the last snapshot, set ad hoc redshift
+        if ((suite == 'Illustris' and snapnum == 135) or
+            (suite == 'IllustrisTNG' and snapnum == 99)):
+                use_z = 0.0485236299818  # corresponds to snapnum_last - 4
+                print('WARNING: Setting use_z=%g.' % (use_z))
         arcsec_per_pixel = 0.396  # https://www.sdss.org/instruments/camera/
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
@@ -435,6 +457,10 @@ if __name__ == '__main__':
     else:
         print('mock_type not understood.')
         sys.exit()
+
+    print('use_z = %g' % (use_z))
+    print('arcsec_per_pixel = %g' % (arcsec_per_pixel))
+    print('kpc_h_per_pixel = %g' % (kpc_h_per_pixel))
 
     # Load subhalo info
     start = time.time()
@@ -465,10 +491,17 @@ if __name__ == '__main__':
             f.write('%d\n' % (sub_index))
 
     if nprocesses == 1:
-        for subfind_id in subfind_ids:
-            create_file(subfind_id)
+        if num_rhalfs > 0:
+            for subfind_id in subfind_ids:
+                wrapper_fixed_num_rhalfs(subfind_id)
+        elif npixels > 0:
+            for subfind_id in subfind_ids:
+                wrapper_fixed_npixels(subfind_id)
     else:
         p = Pool(nprocesses)
-        p.map(create_file, subfind_ids)
+        if num_rhalfs > 0:
+            p.map(wrapper_fixed_num_rhalfs, subfind_ids)
+        elif npixels > 0:
+            p.map(wrapper_fixed_npixels, subfind_ids)
 
     print('Total time: %f s.\n' % (time.time() - start_all))
