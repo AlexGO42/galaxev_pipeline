@@ -376,15 +376,16 @@ if __name__ == '__main__':
         num_neighbors = int(sys.argv[11])  # for adaptive smoothing, usually 32
         num_rhalfs = float(sys.argv[12])  # on each side from the center, usually 7.5
         npixels = int(sys.argv[13])  # total # of pixels on each side, usually -1
-        use_fof = bool(int(sys.argv[14]))  # If True, load particles from FoF group
-        use_cf00 = bool(int(sys.argv[15]))  # If True, apply Charlot & Fall (2000)
-        mock_type = sys.argv[16]  # 'pogs', 'sdss', etc.
-        nprocesses = int(sys.argv[17])
+        log_mstar_min = float(sys.argv[14])  # minimum log10(M*) of galaxies
+        use_fof = bool(int(sys.argv[15]))  # If True, load particles from FoF group
+        use_cf00 = bool(int(sys.argv[16]))  # If True, apply Charlot & Fall (2000)
+        mock_type = sys.argv[17]  # 'pogs', 'sdss', etc.
+        nprocesses = int(sys.argv[18])
     except:
         print('Arguments: suite basedir amdir filename_filters ' + 
               'stellar_photometrics_dir writedir codedir snapnum use_z ' +
-              'proj_kind num_neighbors num_rhalfs npixels use_cf00 use_fof ' + 
-              'mock_type nprocesses')
+              'proj_kind num_neighbors num_rhalfs npixels log_mstar_min ' +
+              'use_cf00 use_fof mock_type nprocesses')
         sys.exit()
 
     # Check input
@@ -477,8 +478,8 @@ if __name__ == '__main__':
     start_all = time.time()
 
     # Define stellar mass bins
-    log_mstar_bin_lower = np.array([9.5])
-    log_mstar_bin_upper = np.array([13.0])
+    log_mstar_bin_lower = np.array([log_mstar_min])
+    log_mstar_bin_upper = np.array([13.0])  # hardcoded since we don't expect larger M*
     mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
     mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
 
