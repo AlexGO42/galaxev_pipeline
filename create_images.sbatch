@@ -2,9 +2,9 @@
 
 #SBATCH --mail-user=v.rodriguez@irya.unam.mx
 #SBATCH --mail-type=ALL
-#SBATCH -J sdss
-#SBATCH -o sdss.out
-#SBATCH -e sdss.err
+#SBATCH -J kids_xy_fof
+#SBATCH -o kids_xy_fof.out
+#SBATCH -e kids_xy_fof.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH -t 2-00:00:00
@@ -34,16 +34,18 @@ NPIXELS=128
 #~ NPIXELS=-1
 
 LOG_MSTAR_MIN=9.0
-MOCK_TYPE=sdss  # pogs, sdss, generic
+MOCK_TYPE=kids  # generic, pogs, sdss, kids
 PROJ_KIND=xy
 NGB=32
-USE_FOF=0
+USE_FOF=1
 USE_CF00=0
 
 BASEDIR=/isaac/ptmp/gc/apillepi/sims.mirror_TNG/${SIMULATION}/output
 AMDIR=/u/vrg/AngularMomentum/output/${SUITE}/${SIMULATION}
 if [ ${MOCK_TYPE} = "sdss" ]; then
   FILENAME_FILTERS=/u/vrg/SyntheticImages/src/broadband_filters/sloan.txt
+elif [ ${MOCK_TYPE} = "kids" ]; then
+  FILENAME_FILTERS=/u/vrg/SyntheticImages/src/broadband_filters/vst.txt
 else
   FILENAME_FILTERS=/u/vrg/SyntheticImages/src/broadband_filters/panstarrs.txt
 fi
