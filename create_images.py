@@ -254,41 +254,116 @@ def get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar):
             if locs_valid[subfind_id]:
                 subfind_ids.append(subfind_id)
 
-    return subfind_ids
+    return np.array(subfind_ids, dtype=np.int32)
 
-def wrapper_fixed_num_rhalfs(subfind_id):
-    """Helper function to keep a single parameter (subfind_id)."""
-    npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
-    create_file(subfind_id, num_rhalfs, npixels)
-
-def wrapper_fixed_npixels(subfind_id):
-    """Helper function to keep a single parameter (subfind_id)."""
-    num_rhalfs = npixels*kpc_h_per_pixel/(2.0*rhalf[subfind_id])
-    create_file(subfind_id, num_rhalfs, npixels)
-
-def create_file(subfind_id, num_rhalfs, npixels):
+def get_num_rhalfs_npixels(subfind_id):
     """
-    Create (adaptively smoothed) images for the chosen filters.
+    Helper function to get the current values of num_rhalfs and npixels,
+    considering that one and only one of the two is defined.
     """
+    # Already checked this, but check again just in case:
+    if num_rhalfs > 0 and npixels > 0:
+        raise Exception('Only one of num_rhalfs and npixels should be defined ' +
+                        '(the other should be -1).')
+    if num_rhalfs > 0:
+        cur_num_rhalfs = num_rhalfs
+        cur_npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
+    elif npixels > 0:
+        assert rhalf[subfind_id] > 0
+        cur_num_rhalfs = npixels*kpc_h_per_pixel/(2.0*rhalf[subfind_id])
+        cur_npixels = npixels
+
+    return cur_num_rhalfs, cur_npixels
+
+def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
+    """Create image for a single subhalo."""
+    cur_num_rhalfs, cur_npixels = get_num_rhalfs_npixels(subfind_id)
+    print('cur_num_rhalfs = %.1f' % (cur_num_rhalfs))
+    print('cur_npixels = %d' % (cur_npixels))
+    
+    # Periodic boundary conditions
+    dx = pos[:] - sub_pos[subfind_id]
+    dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
+
+    # Normalize by rhalf
+    dx = dx / rhalf[subfind_id]
+    hsml = hsml_ckpc_h / rhalf[subfind_id]
+
+    # Transform particle positions according to 'proj_kind' (2D projection)
+    dx_new = transform(dx, jstar_direction[subfind_id], proj_kind=proj_kind)
+
     # Define 2D bins (in units of rhalf)
-    npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
-    print('npixels = %d' % (npixels))
-    xedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1)
-    yedges = np.linspace(-num_rhalfs, num_rhalfs, num=npixels+1)
+    xedges = np.linspace(-cur_num_rhalfs, cur_num_rhalfs, num=cur_npixels+1)
+    yedges = np.linspace(-cur_num_rhalfs, cur_num_rhalfs, num=cur_npixels+1)
     xcenters = 0.5 * (xedges[:-1] + xedges[1:])
     ycenters = 0.5 * (yedges[:-1] + yedges[1:])
+
+    # Store images here
+    image = np.zeros((num_filters,cur_npixels,cur_npixels), dtype=np.float32)
+
+    # Iterate over broadband filters
+    for i, filter_name in enumerate(filter_names):
+        H = adaptive_smoothing(
+            dx_new[:,0], dx_new[:,1], hsml, xcenters, ycenters, cur_num_rhalfs,
+            weights=fluxes[i,:])
+        # Store in array
+        image[i,:,:] = H
+
+    # Convert area units from rhalf^{-2} to pixel_size^{-2}
+    pixel_size_rhalfs =  2.0 * cur_num_rhalfs / float(cur_npixels)  # in rhalfs
+    image *= pixel_size_rhalfs**2
+
+    # Create some header attributes
+    header = fits.Header()
+    header["BUNIT"] = ("counts/s/pixel", "Unit of the array values")
+    header["CDELT1"] = (kpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along X-axis")
+    header["CTYPE1"] = ("pc", "Physical units of the X-axis increment")
+    header["CDELT2"] = (kpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along Y-axis")
+    header["CTYPE2"] = ("pc", "Physical units of the Y-axis increment")
+    header["PIXSCALE"] = (arcsec_per_pixel, "Pixel size in arcsec")
+    header["USE_Z"] = (use_z, "Observed redshift of the source")
+    for k in range(num_filters):
+        header["FILTER%d" % (k)] = (filter_names[k], "Broadband filter index = %d" % (k))
+
+    # Write to FITS file
+    hdu = fits.PrimaryHDU(data=image, header=header)
+    hdulist = fits.HDUList([hdu])
+    hdulist.writeto('%s/broadband_%d.fits' % (datadir, subfind_id))
+    hdulist.close()
+
+    print('Finished for subhalo %d.\n' % (subfind_id))
+    
+
+def create_images(object_id):
+    """
+    Create (adaptively smoothed) images for the chosen filters.
+    Consider all relevant subhalos of a given FoF group.
+    
+    Parameters
+    ----------
+    object_id : int
+        The ID of the object of interest. If ``use_fof`` is True,
+        this corresponds to the FoF group ID. Otherwise, this is
+        the subhalo ID.
+    """
+    if use_fof:
+        # Get Subfind IDs that belong to the current FoF group.
+        fof_subfind_ids = subfind_ids[fof_ids == object_id]
+    else:
+        # A bit of a hack. This way we only process the subhalo of
+        # interest without rewriting too much code.
+        fof_subfind_ids = np.array([object_id], dtype=np.int32)
 
     # Load stellar particle info
     start = time.time()
     print('Loading info from snapshot...')
     if use_fof:
-        sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
         cat = il.snapshot.loadHalo(
-            basedir, snapnum, sub_gr_nr[subfind_id], parttype_stars,
+            basedir, snapnum, object_id, parttype_stars,
             fields=['Coordinates', 'GFM_InitialMass', 'GFM_Metallicity', 'GFM_StellarFormationTime'])
     else:
         cat = il.snapshot.loadSubhalo(
-            basedir, snapnum, subfind_id, parttype_stars,
+            basedir, snapnum, object_id, parttype_stars,
             fields=['Coordinates', 'GFM_InitialMass', 'GFM_Metallicity', 'GFM_StellarFormationTime'])
     all_pos = cat['Coordinates']  # comoving kpc/h
     all_initial_masses = cat['GFM_InitialMass']
@@ -309,56 +384,27 @@ def create_file(subfind_id, num_rhalfs, npixels):
     params = cosmo.CosmologicalParameters(suite=suite)
     stellar_ages_yr = (cosmo.t_Gyr(z, params) - cosmo.t_Gyr(z_form, params)) * 1e9
 
-    # Periodic boundary conditions
-    dx = pos[:] - sub_pos[subfind_id]
-    dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
-
-    # Normalize by rhalf
-    dx = dx / rhalf[subfind_id]  # in rhalfs
-
     # Get smoothing lengths in 3D (before making 2D projection)
+    # once and for all, in simulation units [ckpc/h].
+    # We temporarily center on any subhalo of the FoF group to account
+    # for periodic boundary conditions.
+    dx = pos[:] - sub_pos[fof_subfind_ids[0]]
+    dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
     start = time.time()
     print('Doing spatial search...')
-    hsml = get_hsml(dx[:,0], dx[:,1], dx[:,2], num_neighbors)  # in rhalfs
+    hsml_ckpc_h = get_hsml(dx[:,0], dx[:,1], dx[:,2], num_neighbors)  # in rhalfs
     print('Time: %g s.' % (time.time() - start))
 
-    # Transform particle positions according to 'proj_kind' (2D projection)
-    dx_new = transform(dx, jstar_direction[subfind_id], proj_kind=proj_kind)
-
-    # Store images here
-    image = np.zeros((num_filters,npixels,npixels), dtype=np.float32)
-
-    # Iterate over broadband filters
+    # Get all fluxes for once and for all
+    fluxes = np.empty((len(filter_names), len(initial_masses_Msun)), dtype=np.float64)
     for i, filter_name in enumerate(filter_names):
-        fluxes = get_fluxes(
+        fluxes[i,:] = get_fluxes(
             initial_masses_Msun, metallicities, stellar_ages_yr, filter_name)
-        H = adaptive_smoothing(
-            dx_new[:,0], dx_new[:,1], hsml, xcenters, ycenters, num_rhalfs, weights=fluxes)
-        # Store in array
-        image[i,:,:] = H
 
-    # Convert area units from rhalf^{-2} to pixel_size^{-2}
-    pixel_size_rhalfs =  2.0 * num_rhalfs / float(npixels)  # in rhalfs
-    image *= pixel_size_rhalfs**2
+    for subfind_id in fof_subfind_ids:
+        create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes)
 
-    # Create some header attributes
-    header = fits.Header()
-    header["BUNIT"] = ("counts/s/pixel", "Unit of the array values")
-    header["CDELT1"] = (kpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along X-axis")
-    header["CTYPE1"] = ("pc", "Physical units of the X-axis increment")
-    header["CDELT2"] = (kpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along Y-axis")
-    header["CTYPE2"] = ("pc", "Physical units of the Y-axis increment")
-    header["PIXSCALE"] = (arcsec_per_pixel, "Pixel size in arcsec")
-    header["USE_Z"] = (use_z, "Observed redshift of the source")
-    for k in range(num_filters):
-        header["FILTER%d" % (k)] = (filter_names[k], "Broadband filter index = %d" % (k))
-
-    # Write to FITS file
-    hdu = fits.PrimaryHDU(data=image, header=header)
-    hdulist = fits.HDUList([hdu])
-    hdulist.writeto('%s/broadband_%d.fits' % (datadir, subfind_id))
-
-    print('Finished for subhalo %d.\n' % (subfind_id))
+    print('Finished for object %d.\n' % (object_id))
 
 
 if __name__ == '__main__':
@@ -471,6 +517,7 @@ if __name__ == '__main__':
     sub_pos = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloPos'])
     with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
         jstar_direction = f['jstar_direction'][:]
+    sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
     nsubs = len(mstar)
     print('Time: %f s.' % (time.time() - start))
 
@@ -485,24 +532,26 @@ if __name__ == '__main__':
 
     # Get list of relevant Subfind IDs
     subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar)
+    # Get associated FoF group IDs
+    fof_ids = sub_gr_nr[subfind_ids]
+    unique_fof_ids = np.unique(fof_ids)
     # Print Subfind IDs to a file
     filename = '%s/subfind_ids.txt' % (synthdir)
     with open(filename, 'w') as f:
         for sub_index in subfind_ids:
             f.write('%d\n' % (sub_index))
 
+    # Create list of "generic" objects (halo or subhalo)
+    if use_fof:
+        object_ids = unique_fof_ids
+    else:
+        object_ids = subfind_ids
+    
     if nprocesses == 1:
-        if num_rhalfs > 0:
-            for subfind_id in subfind_ids:
-                wrapper_fixed_num_rhalfs(subfind_id)
-        elif npixels > 0:
-            for subfind_id in subfind_ids:
-                wrapper_fixed_npixels(subfind_id)
+        for object_id in object_ids:
+            create_images(object_id)
     else:
         p = Pool(nprocesses)
-        if num_rhalfs > 0:
-            p.map(wrapper_fixed_num_rhalfs, subfind_ids)
-        elif npixels > 0:
-            p.map(wrapper_fixed_npixels, subfind_ids)
+        p.map(create_images, list(object_ids))
 
     print('Total time: %f s.\n' % (time.time() - start_all))
