@@ -5,7 +5,7 @@ import sys
 import scipy.interpolate as ip
 from scipy.spatial import cKDTree
 from astropy.io import fits
-from multiprocessing import Pool
+from multiprocessing import Process, Queue
 import time
 import ctypes
 
@@ -406,6 +406,15 @@ def create_images(object_id):
 
     print('Finished for object %d.\n' % (object_id))
 
+def slave(jobs):
+    """Slave function."""
+    try:
+        while True:
+            object_id = jobs.get_nowait()
+            create_images(object_id)
+    except:
+        pass  # an exception is raised when job queue is empty
+
 
 if __name__ == '__main__':
     try:
@@ -501,6 +510,18 @@ if __name__ == '__main__':
         params = cosmo.CosmologicalParameters(suite=suite)
         d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
         kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
+    elif mock_type == 'kids':
+        # If at the last snapshot, set ad hoc redshift
+        if ((suite == 'Illustris' and snapnum == 135) or
+            (suite == 'IllustrisTNG' and snapnum == 99)):
+                use_z = 0.15274876890238098  # corresponds to snapnum_last - 12
+                print('WARNING: Setting use_z=%g.' % (use_z))
+        arcsec_per_pixel = 0.21  # Lingyu Wang, private communication
+        rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
+        # Note that the angular-diameter distance is expressed in comoving coordinates:
+        params = cosmo.CosmologicalParameters(suite=suite)
+        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
     else:
         print('mock_type not understood.')
         sys.exit()
@@ -551,7 +572,20 @@ if __name__ == '__main__':
         for object_id in object_ids:
             create_images(object_id)
     else:
-        p = Pool(nprocesses)
-        p.map(create_images, list(object_ids))
+        # See http://stevemorphet.weebly.com/python/python-multiprocessing
+        pool = []       # instantiate pool of processes
+        jobs = Queue()  # instantiate job queue
+        # Instantiate N slave processes
+        for proc_id in range(nprocesses):
+            pool.append(Process(target=slave, args=(jobs,)))
+        # Populate the job queue
+        for object_id in object_ids:
+            jobs.put(object_id)
+        # Start the slaves
+        for slave in pool:
+            slave.start()
+        # Wait for the slaves to finish processing
+        for slave in pool:
+            slave.join()
 
     print('Total time: %f s.\n' % (time.time() - start_all))
