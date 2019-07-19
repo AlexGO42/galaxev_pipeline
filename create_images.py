@@ -5,7 +5,7 @@ import sys
 import scipy.interpolate as ip
 from scipy.spatial import cKDTree
 from astropy.io import fits
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pool
 import time
 import ctypes
 
@@ -567,25 +567,34 @@ if __name__ == '__main__':
         object_ids = unique_fof_ids
     else:
         object_ids = subfind_ids
-    
+
+    # Create images
     if nprocesses == 1:
         for object_id in object_ids:
             create_images(object_id)
     else:
-        # See http://stevemorphet.weebly.com/python/python-multiprocessing
-        pool = []       # instantiate pool of processes
-        jobs = Queue()  # instantiate job queue
-        # Instantiate N slave processes
-        for proc_id in range(nprocesses):
-            pool.append(Process(target=slave, args=(jobs,)))
-        # Populate the job queue
-        for object_id in object_ids:
-            jobs.put(object_id)
-        # Start the slaves
-        for slave in pool:
-            slave.start()
-        # Wait for the slaves to finish processing
-        for slave in pool:
-            slave.join()
+        # The FoF and subhalo versions require different parallelization
+        # strategies (at least with the multiprocessing package). The Queue
+        # results in better load balancing, but seems to involve too much
+        # communication when dealing with small tasks (i.e. per subhalo).
+        if use_fof:
+            # See http://stevemorphet.weebly.com/python/python-multiprocessing
+            pool = []       # instantiate pool of processes
+            jobs = Queue()  # instantiate job queue
+            # Instantiate N slave processes
+            for proc_id in range(nprocesses):
+                pool.append(Process(target=slave, args=(jobs,)))
+            # Populate the job queue
+            for object_id in object_ids:
+                jobs.put(object_id)
+            # Start the slaves
+            for slave in pool:
+                slave.start()
+            # Wait for the slaves to finish processing
+            for slave in pool:
+                slave.join()
+        else:
+            with Pool(nprocesses) as p:
+                p.map(create_images, list(object_ids))
 
     print('Total time: %f s.\n' % (time.time() - start_all))
