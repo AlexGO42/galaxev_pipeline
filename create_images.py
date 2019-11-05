@@ -506,7 +506,19 @@ if __name__ == '__main__':
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
         d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
-        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
+        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h
+    elif mock_type == 'galex':
+        # If at the last snapshot, set ad hoc redshift
+        if ((suite == 'Illustris' and snapnum == 135) or
+            (suite == 'IllustrisTNG' and snapnum == 99)):
+                use_z = 0.0485236299818  # corresponds to snapnum_last - 4
+                print('WARNING: Setting use_z=%g.' % (use_z))
+        arcsec_per_pixel = 1.5  # https://archive.stsci.edu/missions-and-data/galex-1
+        rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
+        # Note that the angular-diameter distance is expressed in comoving coordinates:
+        params = cosmo.CosmologicalParameters(suite=suite)
+        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h
     elif mock_type == 'kids':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or

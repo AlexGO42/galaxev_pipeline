@@ -244,6 +244,11 @@ if __name__ == '__main__':
             fluxmag0 = float(denominator) / (h*c) * area / ncamcols
             #    This gives fluxmag0 = 3.97e9 counts/s, in great agreement
             #    with the other method described above.
+        elif mock_type == 'galex':
+            # Thankfully, GALEX filter curves are already expressed as
+            # an effective area (just like Pan-STARRS). We just need to
+            # convert the units from cm^2 to m^2:
+            fluxmag0 = float(denominator) / (h*c) * 1e-4
         else:
             print('mock_type not understood.')
             sys.exit()
