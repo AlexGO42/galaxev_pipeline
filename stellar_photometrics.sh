@@ -28,6 +28,6 @@ for SUITE in Illustris IllustrisTNG; do
   #~ WRITEDIR=/n/hernquistfs3/vrodrigu/SyntheticImages/${MOCK_TYPE}/${SUITE}
   WRITEDIR=/u/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
   for USE_CF00 in 0 1; do
-    python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} ${FILTER_DIR} ${FILENAME_FILTERS} ${CODEDIR} ${USE_CF00} ${USE_Z}
+    python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} ${FILTER_DIR} ${FILENAME_FILTERS} ${CODEDIR} ${USE_CF00} ${USE_Z} ${MOCK_TYPE}
   done
 done

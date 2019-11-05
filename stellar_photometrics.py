@@ -10,6 +10,10 @@ from astropy.io import fits
 import astropy.constants as const
 import cosmology as cosmo
 
+# Constants
+h = const.h.value
+c = const.c.value
+
 def read_bc03():
     """
     Read single stellar population (SSP) model data from GALAXEV.
@@ -49,7 +53,7 @@ def read_bc03():
     num_stellar_ages = 221
     datacube = np.zeros(
         (num_metallicities, num_stellar_ages, num_wavelengths), dtype=np.float64)
-    
+
     # Read and parse ASCII file
     print('Reading BC03 ASCII data...')
     start = time.time()
@@ -88,17 +92,18 @@ def apply_cf00(datacube, stellar_ages, wavelengths):
     tau_ISM = 0.3
     n = -0.7
     lambda_0 = 5500.0  # angstroms
-    
+
     tau_cube = np.zeros_like(datacube)
     tau_cube[:, stellar_ages <= t_BC, :] = tau_BC
     tau_cube[:, stellar_ages >  t_BC, :] = tau_ISM
-    
+
     datacube *= np.exp(-tau_cube*(wavelengths[np.newaxis,np.newaxis,:]/lambda_0)**n)
-    
+
     return datacube
 
+
 if __name__ == '__main__':
-    
+
     try:
         suite = sys.argv[1]
         writedir = sys.argv[2]
@@ -108,8 +113,10 @@ if __name__ == '__main__':
         codedir = sys.argv[6]
         use_cf00 = bool(int(sys.argv[7]))
         use_z = float(sys.argv[8])
+        mock_type = sys.argv[9]  # 'pogs', 'sdss', etc.
     except:
-        print('Arguments: suite writedir bc03_model_dir filter_dir filename_filters codedir use_cf00 use_z')
+        print('Arguments: suite writedir bc03_model_dir filter_dir',
+              'filename_filters codedir use_cf00 use_z mock_type')
         sys.exit()
 
     # If True, use high resolution data (at 3 angstrom intervals) in the
@@ -140,14 +147,14 @@ if __name__ == '__main__':
 
     # Shift rest-frame wavelengths to observer-frame; convert to meters
     wavelengths *= (1.0 + use_z) * 1e-10  # m
-    
+
     # AB magnitude system in wavelength units
     FAB_nu = 3631.0 * 1e-26  # W/m^2/Hz
-    FAB_lambda = FAB_nu * const.c.value / (wavelengths)**2  # W/m^2/m
+    FAB_lambda = FAB_nu * c / (wavelengths)**2  # W/m^2/m
 
     # Convert rest-frame spectra from Lsun/angstrom to W/m
     datacube *= 3.826e26 * 1e10
-    
+
     # Convert luminosity to flux
     datacube *= 1.0 / (4.0 * np.pi * d_L**2)  # W/m^2/m
 
@@ -167,14 +174,16 @@ if __name__ == '__main__':
     for filter_name in filter_names:
         # Store magnitudes here:
         magnitudes = np.zeros((num_metallicities, num_stellar_ages), dtype=np.float32)
-        
+
         # Read filter response function
         filter_data = np.loadtxt('%s/%s' % (filter_dir, filter_name))
         filter_lambda, filter_response = filter_data.T
         filter_lambda *= 1e-10  # to meters
         filter_interp = ip.interp1d(filter_lambda, filter_response, bounds_error=False, fill_value=0.0)
 
-        # Apply eq. (8) from the BC03 manual
+        # Apply eq. (8) from the BC03 manual to calculate the apparent
+        # magnitude of the integrated photon flux collected by a detector
+        # with filter response R(lambda).
         R = filter_interp(wavelengths)
         denominator = it.trapz(
             FAB_lambda * wavelengths * R, x=wavelengths)
@@ -191,14 +200,55 @@ if __name__ == '__main__':
 
         dset = f.create_dataset(filter_name, data=magnitudes)
 
-        # Note that this denominator is proportional to the reference flux,
-        # for each filter, which we store for convenience.
-        # If the filter response is given as a capture cross-section in
-        # m^2 counts/photon (e.g. Pan-STARRS), then the units are counts/s.
-        # Otherwise, if the filter response is an adimensional quantum efficiency,
-        # then the units are photons/s/m^2.
-        zeropoint_phot = float(denominator) / (const.h.value * const.c.value)
-        dset.attrs['zeropoint_phot'] = zeropoint_phot
+        # Now that we have the magnitudes (which do not require knowing
+        # the units, if any, of the transmission curve), we note that
+        # the "denominator" is essentially the integrated photon
+        # flux that corresponds to a magnitude of zero. We will eventually
+        # need this for calibration purposes. Our goal is to
+        # express this "magnitude-zero flux" as the total number of
+        # electron counts per second that are registered by the CCD.
+        # This requires knowing the units of the transmission curve,
+        # which are typically different for each instrument.
+        if mock_type == 'pogs':
+            # In Pan-STARRS, the filter response is given as a capture
+            # cross-section in m^2 counts/photon (Tonry et al. 2012).
+            # This is ideal because the "denominator" calculated above
+            # divided by hc is already the number of electron counts/s
+            # registered by the CCD:
+            fluxmag0 = float(denominator) / (h*c)
+        elif mock_type == 'sdss':
+            # SDSS filter curves are expressed as an adimensional quantum
+            # efficiency (electron counts per photon). There are a couple
+            # of ways to obtain the desired calibration:
+            #
+            # 1) Download actual SDSS images and look at the header of the
+            #    FITS files. There is a property called "NMGY" that gives the
+            #    number of nanomaggies (1 maggie = reference flux of 3631 Jy)
+            #    per count. From looking at a couple of frames I found a value
+            #    of 0.0047 nMgy/count (a more robust approach would be to look
+            #    at *all* SDSS frames and get the median or something).
+            #    Inverting this parameter and dividing by the SDSS exposure
+            #    time (53.9 s) gives fluxmag0 = 3.9e9 counts/s.
+            #
+            # 2) Try to calculate fluxmag0 from first principles. First
+            #    we estimate the effective capturing area of the
+            #    telescope's 2.5 m primary mirror:
+            area = np.pi * (2.5/2.0)**2  # m^2
+            #    We also take into account that there are six parallel
+            #    scanlines, which basically means that a sixth of the
+            #    incoming light goes into each "column" of CCDs (there
+            #    are also 5 rows of CCDs, one for each filter, each of
+            #    which receives an exposure time of 53.9 seconds):
+            ncamcols = 6
+            #    Now we can convert the "denominator" into counts/s:
+            fluxmag0 = float(denominator) / (h*c) * area / ncamcols
+            #    This gives fluxmag0 = 3.97e9 counts/s, in great agreement
+            #    with the other method described above.
+        else:
+            print('mock_type not understood.')
+            sys.exit()
+
+        dset.attrs['fluxmag0'] = fluxmag0  # in counts/s
         # We also store the assumed redshift and luminosity distance:
         dset.attrs['use_z'] = use_z
         dset.attrs['d_L'] = d_L
@@ -206,3 +256,4 @@ if __name__ == '__main__':
         print('Finished for filter %s.' % (filter_name))
 
     f.close()
+
