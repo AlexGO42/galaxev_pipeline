@@ -41,12 +41,16 @@ USE_CF00=0
 
 BASEDIR=/isaac/ptmp/gc/apillepi/sims.mirror_TNG/${SIMULATION}/output
 AMDIR=/u/vrg/AngularMomentum/output/${SUITE}/${SIMULATION}
-if [ ${MOCK_TYPE} = "sdss" ]; then
-  FILENAME_FILTERS=/u/vrg/SyntheticImages/src/broadband_filters/sloan.txt
+if [ ${MOCK_TYPE} = "generic" ]; then
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/panstarrs.txt
+elif [ ${MOCK_TYPE} = "pogs" ]; then
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/panstarrs.txt
+elif [ ${MOCK_TYPE} = "sdss" ]; then
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
 elif [ ${MOCK_TYPE} = "kids" ]; then
-  FILENAME_FILTERS=/u/vrg/SyntheticImages/src/broadband_filters/vst.txt
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/vst.txt
 else
-  FILENAME_FILTERS=/u/vrg/SyntheticImages/src/broadband_filters/panstarrs.txt
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/${MOCK_TYPE}.txt
 fi
 STELLAR_PHOTOMETRICS_DIR=/u/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
 WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
