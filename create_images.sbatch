@@ -57,7 +57,7 @@ WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
 CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
 NPROCESSES=${SLURM_NTASKS_PER_NODE}
 
-python ${CODEDIR}/create_images.py \
+mpiexec -n ${NPROCESSES} python ${CODEDIR}/create_images.py \
     ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} \
     ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${USE_Z} \
     ${PROJ_KIND} ${NGB} ${NUM_RHALFS} ${NPIXELS} ${LOG_MSTAR_MIN} ${USE_FOF} \

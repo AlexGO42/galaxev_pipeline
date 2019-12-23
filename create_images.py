@@ -5,13 +5,15 @@ import sys
 import scipy.interpolate as ip
 from scipy.spatial import cKDTree
 from astropy.io import fits
-from multiprocessing import Process, Queue, Pool
+from mpi4py import MPI
 import time
 import ctypes
 
 import illustris_python as il
 import cosmology as cosmo
 
+KILL_TAG = 1
+WORK_TAG = 0
 parttype_stars = 4
 
 def get_fluxes(initial_masses_Msun, metallicities, stellar_ages_yr, filter_name):
@@ -279,8 +281,8 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     print('cur_num_rhalfs = %.1f' % (cur_num_rhalfs))
     print('cur_npixels = %d' % (cur_npixels))
 
-    # Periodic boundary conditions
-    dx = pos[:] - sub_pos[subfind_id]
+    # Periodic boundary conditions (center at most bound stellar particle)
+    dx = pos[:] - pos[0]
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
 
     # Normalize by rhalf
@@ -385,7 +387,7 @@ def create_images(object_id):
     # once and for all, in simulation units [ckpc/h].
     # We temporarily center on any subhalo of the FoF group to account
     # for periodic boundary conditions.
-    dx = pos[:] - sub_pos[fof_subfind_ids[0]]
+    dx = pos[:] - pos[0]
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
     start = time.time()
     print('Doing spatial search...')
@@ -403,14 +405,53 @@ def create_images(object_id):
 
     print('Finished for object %d.\n' % (object_id))
 
-def slave(jobs):
-    """Slave function."""
-    try:
-        while True:
-            object_id = jobs.get_nowait()
-            create_images(object_id)
-    except:
-        pass  # an exception is raised when job queue is empty
+def master(comm):
+    """Master process (to be run by process with rank 0)."""
+    size = comm.Get_size()
+    status = MPI.Status()
+    
+    dummy_arr = np.zeros(1, dtype=np.uint32)
+
+    # Initialize by sending one unit of work to each slave
+    cur_pos = 0
+    for k in range(1, size):
+        object_id = object_ids[cur_pos]
+        comm.Send(np.array([object_id], dtype=np.uint32), dest=k, tag=WORK_TAG)
+        cur_pos += 1
+
+    # While there is more work...
+    while cur_pos < len(object_ids):
+        object_id = object_ids[cur_pos]
+        # Get results from slave
+        comm.Recv(dummy_arr, source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+        # Send another unit of work to slave
+        comm.Send(np.array([object_id], dtype=np.uint32), dest=status.source, tag=WORK_TAG)
+        # Next iteration
+        cur_pos += 1
+        print('Slave %i did object %i.' % (status.source, status.tag))
+
+    # Get remaining results and kill slaves
+    for k in range(1, size):
+        comm.Recv(dummy_arr, source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+        comm.Send(dummy_arr, dest=status.source, tag=KILL_TAG)
+
+def slave(comm):
+    """ Slave process (to process one unit of work)."""
+    status = MPI.Status()
+    object_id = np.zeros(1, dtype=np.uint32)
+
+    # Iterate until slaves receives the KILL_TAG
+    while True:
+        comm.Recv(object_id, source=0, tag=MPI.ANY_TAG, status=status)
+
+        if status.tag == KILL_TAG:
+            return
+
+        # Do the work
+        create_images(object_id[0])
+
+        # Let the master know that the job is done
+        comm.Send(np.zeros(1, dtype=np.uint32), dest=0, tag=object_id[0])
 
 
 if __name__ == '__main__':
@@ -445,6 +486,11 @@ if __name__ == '__main__':
         raise Exception('Only one of num_rhalfs and npixels should be defined ' +
                         '(the other should be -1).')
 
+    # MPI stuff
+    comm = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
+
     # Save images here
     synthdir = '%s/snapnum_%03d/galaxev/%s' % (writedir, snapnum, proj_kind)
     if use_fof:
@@ -452,8 +498,12 @@ if __name__ == '__main__':
     if use_cf00:
         synthdir += '_cf00'
     datadir = '%s/data' % (synthdir)
-    if not os.path.lexists(datadir):
-        os.makedirs(datadir)
+
+    # Create write directory if it does not exist
+    if rank == 0:
+        if not os.path.lexists(datadir):
+            os.makedirs(datadir)
+    comm.Barrier()
 
     # Read filter names
     with open(filename_filters, 'r') as f:
@@ -477,7 +527,7 @@ if __name__ == '__main__':
     # (in particular, use_z = 0 for rest-frame photometry).
     if mock_type == 'generic':
         use_z = 0.0  # Rest-frame
-        print('WARNING: setting use_z=0.0 (rest-frame photometry).')
+        #print('WARNING: setting use_z=0.0 (rest-frame photometry).')
         kpc_h_per_pixel = 0.25  # Fixed pixel scale in ckpc/h
         # Camera is 10 Mpc away from source in physical units:
         d_A_kpc_h = 10000.0 * h * (1.0 + z)  # ckpc/h
@@ -488,7 +538,7 @@ if __name__ == '__main__':
         if ((suite == 'Illustris' and snapnum == 135) or
             (suite == 'IllustrisTNG' and snapnum == 99)):
                 use_z = 0.0485236299818  # corresponds to snapnum_last - 4
-                print('WARNING: Setting use_z=%g.' % (use_z))
+                #print('WARNING: Setting use_z=%g.' % (use_z))
         arcsec_per_pixel = 0.25  # Chambers et al. (2016)
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
@@ -500,7 +550,7 @@ if __name__ == '__main__':
         if ((suite == 'Illustris' and snapnum == 135) or
             (suite == 'IllustrisTNG' and snapnum == 99)):
                 use_z = 0.0485236299818  # corresponds to snapnum_last - 4
-                print('WARNING: Setting use_z=%g.' % (use_z))
+                #print('WARNING: Setting use_z=%g.' % (use_z))
         arcsec_per_pixel = 0.396  # https://www.sdss.org/instruments/camera/
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
@@ -512,7 +562,7 @@ if __name__ == '__main__':
         if ((suite == 'Illustris' and snapnum == 135) or
             (suite == 'IllustrisTNG' and snapnum == 99)):
                 use_z = 0.0485236299818  # corresponds to snapnum_last - 4
-                print('WARNING: Setting use_z=%g.' % (use_z))
+                #print('WARNING: Setting use_z=%g.' % (use_z))
         arcsec_per_pixel = 1.5  # https://archive.stsci.edu/missions-and-data/galex-1
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
@@ -524,7 +574,7 @@ if __name__ == '__main__':
         if ((suite == 'Illustris' and snapnum == 135) or
             (suite == 'IllustrisTNG' and snapnum == 99)):
                 use_z = 0.15274876890238098  # corresponds to snapnum_last - 12
-                print('WARNING: Setting use_z=%g.' % (use_z))
+                #print('WARNING: Setting use_z=%g.' % (use_z))
         arcsec_per_pixel = 0.21  # Lingyu Wang, private communication
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
@@ -535,76 +585,72 @@ if __name__ == '__main__':
         print('mock_type not understood.')
         sys.exit()
 
-    print('use_z = %g' % (use_z))
-    print('arcsec_per_pixel = %g' % (arcsec_per_pixel))
-    print('kpc_h_per_pixel = %g' % (kpc_h_per_pixel))
+    # ------------ MPI PARALLELIZATION STARTS HERE ------------
+    
+    if rank == 0:
+        print('use_z = %g' % (use_z))
+        print('arcsec_per_pixel = %g' % (arcsec_per_pixel))
+        print('kpc_h_per_pixel = %g' % (kpc_h_per_pixel))
 
-    # Load subhalo info
-    start = time.time()
-    print('Loading subhalo info...')
-    mstar = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloMassType'])[:, parttype_stars]
-    rhalf = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
-    sub_pos = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloPos'])
-    with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
-        jstar_direction = f['jstar_direction'][:]
-    sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
-    nsubs = len(mstar)
-    print('Time: %f s.' % (time.time() - start))
-
-    # For performance checks
-    start_all = time.time()
-
-    # Define stellar mass bins
-    log_mstar_bin_lower = np.array([log_mstar_min])
-    log_mstar_bin_upper = np.array([13.0])  # hardcoded since we don't expect larger M*
-    mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
-    mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
-
-    # Get list of relevant Subfind IDs
-    subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar)
-    # Get associated FoF group IDs
-    fof_ids = sub_gr_nr[subfind_ids]
-    unique_fof_ids = np.unique(fof_ids)
-    # Print Subfind IDs to a file
-    filename = '%s/subfind_ids.txt' % (synthdir)
-    with open(filename, 'w') as f:
-        for sub_index in subfind_ids:
-            f.write('%d\n' % (sub_index))
-
-    # Create list of "generic" objects (halo or subhalo)
-    if use_fof:
-        object_ids = unique_fof_ids
+        # Load subhalo info
+        start = time.time()
+        print('Loading subhalo info...')
+        mstar = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloMassType'])[:, parttype_stars]
+        rhalf = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
+        sub_pos = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloPos'])
+        with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
+            jstar_direction = f['jstar_direction'][:]
+        sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
+        nsubs = len(mstar)
+        print('Time: %f s.' % (time.time() - start))
     else:
-        object_ids = subfind_ids
+        rhalf = None
+        jstar_direction = None
 
-    # Create images
-    if nprocesses == 1:
-        for object_id in object_ids:
-            create_images(object_id)
-    else:
-        # The FoF and subhalo versions require different parallelization
-        # strategies (at least with the multiprocessing package). The Queue
-        # results in better load balancing, but seems to involve too much
-        # communication when dealing with small tasks (i.e. per subhalo).
+    # For simplicity, all processes will have a copy of these arrays:
+    comm.Barrier()
+    rhalf = comm.bcast(rhalf, root=0)
+    jstar_direction = comm.bcast(jstar_direction, root=0)
+
+    if rank == 0:
+        # For performance checks
+        start_all = time.time()
+
+        # Define stellar mass bins
+        log_mstar_bin_lower = np.array([log_mstar_min])
+        log_mstar_bin_upper = np.array([13.0])  # hardcoded since we don't expect larger M*
+        mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
+        mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
+
+        # Get list of relevant Subfind IDs
+        subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar)
+        # Get associated FoF group IDs
+        fof_ids = sub_gr_nr[subfind_ids]
+        unique_fof_ids = np.unique(fof_ids)
+        # Print Subfind IDs to a file
+        filename = '%s/subfind_ids.txt' % (synthdir)
+        with open(filename, 'w') as f:
+            for sub_index in subfind_ids:
+                f.write('%d\n' % (sub_index))
+
+        # Create list of "generic" objects (halo or subhalo)
         if use_fof:
-            # See http://stevemorphet.weebly.com/python/python-multiprocessing
-            pool = []       # instantiate pool of processes
-            jobs = Queue()  # instantiate job queue
-            # Instantiate N slave processes
-            for proc_id in range(nprocesses):
-                pool.append(Process(target=slave, args=(jobs,)))
-            # Populate the job queue
-            for object_id in object_ids:
-                jobs.put(object_id)
-            # Start the slaves
-            for slave in pool:
-                slave.start()
-            # Wait for the slaves to finish processing
-            for slave in pool:
-                slave.join()
+            object_ids = unique_fof_ids
         else:
-            with Pool(nprocesses) as p:
-                p.map(create_images, list(object_ids))
+            object_ids = subfind_ids
 
-    print('Total time: %f s.\n' % (time.time() - start_all))
+        # Create images
+        if nprocesses == 1:
+            for object_id in object_ids:
+                create_images(object_id)
+        else:
+            start_time = MPI.Wtime()
+            master(comm)
+            end_time = MPI.Wtime()
+            print("MPI Wtime: %f s.\n" % (end_time - start_time))
+
+        print('Total time: %f s.\n' % (time.time() - start_all))
+
+    else:
+        slave(comm)
 
