@@ -112,11 +112,12 @@ if __name__ == '__main__':
         filename_filters = sys.argv[5]
         codedir = sys.argv[6]
         use_cf00 = bool(int(sys.argv[7]))
-        use_z = float(sys.argv[8])
-        mock_type = sys.argv[9]  # 'pogs', 'sdss', etc.
+        snapnum = int(sys.argv[8])
+        use_z = float(sys.argv[9])
+        mock_type = sys.argv[10]  # 'pogs', 'sdss', etc.
     except:
         print('Arguments: suite writedir bc03_model_dir filter_dir',
-              'filename_filters codedir use_cf00 use_z mock_type')
+              'filename_filters codedir use_cf00 snapnum use_z mock_type')
         sys.exit()
 
     # If True, use high resolution data (at 3 angstrom intervals) in the
@@ -164,9 +165,10 @@ if __name__ == '__main__':
 
     # Write output to this file
     if use_cf00:
-        f = h5py.File('%s/stellar_photometrics_cf00.hdf5' % (writedir), 'w')
+        filename = '%s/stellar_photometrics_cf00_%03d.hdf5' % (writedir, snapnum)
     else:
-        f = h5py.File('%s/stellar_photometrics.hdf5' % (writedir), 'w')
+        filename = '%s/stellar_photometrics_%03d.hdf5' % (writedir, snapnum)
+    f = h5py.File(filename, 'w')
     f.create_dataset('metallicities', data=metallicities)
     f.create_dataset('stellar_ages', data=stellar_ages)
 
@@ -249,6 +251,17 @@ if __name__ == '__main__':
             # an effective area (just like Pan-STARRS). We just need to
             # convert the units from cm^2 to m^2:
             fluxmag0 = float(denominator) / (h*c) * 1e-4
+        elif mock_type == 'hst_acs' or mock_type == 'hst_wfc3':
+            # Although HST doesn't use AB magnitudes, we use them here
+            # for consistency with the rest of the code. The final images
+            # have units of counts/s, so the magnitude system used here
+            # is unimportant. The calculations below assume that all the
+            # light goes to the same CCD (unlike SDSS) and that the units
+            # of the transmission curve are counts/photon. These assumptions
+            # were verified by comparing with the "PHOTFNU" and "PHOTFLAM"
+            # attributes found in actual FITS headers from CANDELS.
+            area = np.pi * (2.4/2.0)**2  # m^2
+            fluxmag0 = float(denominator) / (h*c) * area
         else:
             print('mock_type not understood.')
             sys.exit()
