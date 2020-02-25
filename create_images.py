@@ -587,7 +587,8 @@ if __name__ == '__main__':
             (suite == 'IllustrisTNG' and snapnum == 99)):
                 use_z = 0.0485236299818  # corresponds to snapnum_last - 4
                 #print('WARNING: Setting use_z=%g.' % (use_z))
-        arcsec_per_pixel = 0.049  # https://hst-docs.stsci.edu/display/ACSDHB
+        #arcsec_per_pixel = 0.049  # https://hst-docs.stsci.edu/display/ACSDHB
+        arcsec_per_pixel = 0.03  # CANDELS pixel scale (Koekemoer et al. 2011)
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
@@ -599,7 +600,8 @@ if __name__ == '__main__':
             (suite == 'IllustrisTNG' and snapnum == 99)):
                 use_z = 0.0485236299818  # corresponds to snapnum_last - 4
                 #print('WARNING: Setting use_z=%g.' % (use_z))
-        arcsec_per_pixel = 0.13  # https://hst-docs.stsci.edu/display/WFC3DHB
+        #arcsec_per_pixel = 0.13  # https://hst-docs.stsci.edu/display/WFC3DHB
+        arcsec_per_pixel = 0.06  # CANDELS pixel scale (Koekemoer et al. 2011)
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
