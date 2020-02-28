@@ -267,10 +267,10 @@ def get_num_rhalfs_npixels(subfind_id):
                         '(the other should be -1).')
     if num_rhalfs > 0:
         cur_num_rhalfs = num_rhalfs
-        cur_npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/kpc_h_per_pixel))
+        cur_npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/ckpc_h_per_pixel))
     elif npixels > 0:
         assert rhalf[subfind_id] > 0
-        cur_num_rhalfs = npixels*kpc_h_per_pixel/(2.0*rhalf[subfind_id])
+        cur_num_rhalfs = npixels*ckpc_h_per_pixel/(2.0*rhalf[subfind_id])
         cur_npixels = npixels
 
     return cur_num_rhalfs, cur_npixels
@@ -316,9 +316,9 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     # Create some header attributes
     header = fits.Header()
     header["BUNIT"] = ("counts/s/pixel", "Unit of the array values")
-    header["CDELT1"] = (kpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along X-axis")
+    header["CDELT1"] = (ckpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along X-axis")
     header["CTYPE1"] = ("pc", "Physical units of the X-axis increment")
-    header["CDELT2"] = (kpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along Y-axis")
+    header["CDELT2"] = (ckpc_h_per_pixel * 1000.0 / h / (1.0 + z), "Coordinate increment along Y-axis")
     header["CTYPE2"] = ("pc", "Physical units of the Y-axis increment")
     header["PIXSCALE"] = (arcsec_per_pixel, "Pixel size in arcsec")
     header["USE_Z"] = (use_z, "Observed redshift of the source")
@@ -528,10 +528,10 @@ if __name__ == '__main__':
     if mock_type == 'generic':
         use_z = 0.0  # Rest-frame
         #print('WARNING: setting use_z=0.0 (rest-frame photometry).')
-        kpc_h_per_pixel = 0.25  # Fixed pixel scale in ckpc/h
+        ckpc_h_per_pixel = 0.25  # Fixed pixel scale in ckpc/h
         # Camera is 10 Mpc away from source in physical units:
-        d_A_kpc_h = 10000.0 * h * (1.0 + z)  # ckpc/h
-        rad_per_pixel = kpc_h_per_pixel / d_A_kpc_h
+        d_A_ckpc_h = 10000.0 * h * (1.0 + z)  # ckpc/h
+        rad_per_pixel = ckpc_h_per_pixel / d_A_ckpc_h
         arcsec_per_pixel = rad_per_pixel * (3600.0 * 180.0 / np.pi)
     elif mock_type == 'pogs':
         # If at the last snapshot, set ad hoc redshift
@@ -543,8 +543,8 @@ if __name__ == '__main__':
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
-        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
-        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
     elif mock_type == 'sdss':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
@@ -555,8 +555,8 @@ if __name__ == '__main__':
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
-        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
-        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
     elif mock_type == 'galex':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
@@ -567,8 +567,8 @@ if __name__ == '__main__':
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
-        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
-        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
     elif mock_type == 'kids':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
@@ -579,8 +579,8 @@ if __name__ == '__main__':
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
-        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
-        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
     elif mock_type == 'hst_acs':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
@@ -592,8 +592,8 @@ if __name__ == '__main__':
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
-        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
-        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
     elif mock_type == 'hst_wfc3':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
@@ -605,8 +605,8 @@ if __name__ == '__main__':
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
-        d_A_kpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
-        kpc_h_per_pixel = rad_per_pixel * d_A_kpc_h
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
     else:
         print('mock_type not understood.')
         sys.exit()
@@ -616,7 +616,7 @@ if __name__ == '__main__':
     if rank == 0:
         print('use_z = %g' % (use_z))
         print('arcsec_per_pixel = %g' % (arcsec_per_pixel))
-        print('kpc_h_per_pixel = %g' % (kpc_h_per_pixel))
+        print('ckpc_h_per_pixel = %g' % (ckpc_h_per_pixel))
 
         # Load subhalo info
         start = time.time()
