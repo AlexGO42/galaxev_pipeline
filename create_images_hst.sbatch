@@ -35,9 +35,9 @@ CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
 #NPROCESSES=${SLURM_NTASKS_PER_NODE}
 NPROCESSES=16
 
-for MOCK_TYPE in hst_acs hst_wfc3; do
+for MOCK_TYPE in hst_wfc3 hst_acs; do
   FILENAME_FILTERS=${FILTER_DIR}/${MOCK_TYPE}.txt
-  STELLAR_PHOTOMETRICS_DIR=/u/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
+  STELLAR_PHOTOMETRICS_DIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
   WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
   for SNAPNUM in 25 29 33 40 50 67; do
     mpiexec -n ${NPROCESSES} python ${CODEDIR}/create_images.py \

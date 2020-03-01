@@ -27,8 +27,8 @@ CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
 
 SUITE=IllustrisTNG
 USE_CF00=0
-for MOCK_TYPE in candels_acs candels_wfc3; do
-  WRITEDIR=/u/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
+for MOCK_TYPE in candels_wfc3 candels_acs; do
+  WRITEDIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
   FILENAME_FILTERS=${FILTER_DIR}/${MOCK_TYPE}.txt
   for SNAPNUM in 25 29 33 40 50 67; do
     USE_Z=${redshifts[${SNAPNUM}]}
