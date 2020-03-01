@@ -2,9 +2,9 @@
 
 #SBATCH --mail-user=v.rodriguez@irya.unam.mx
 #SBATCH --mail-type=ALL
-#SBATCH -J hst_xy_fof
-#SBATCH -o hst_xy_fof.out
-#SBATCH -e hst_xy_fof.err
+#SBATCH -J candels_xy
+#SBATCH -o candels_xy.out
+#SBATCH -e candels_xy.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH -t 2-00:00:00
@@ -35,7 +35,7 @@ CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
 #NPROCESSES=${SLURM_NTASKS_PER_NODE}
 NPROCESSES=16
 
-for MOCK_TYPE in hst_wfc3 hst_acs; do
+for MOCK_TYPE in candels_wfc3 candels_acs; do
   FILENAME_FILTERS=${FILTER_DIR}/${MOCK_TYPE}.txt
   STELLAR_PHOTOMETRICS_DIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
   WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
