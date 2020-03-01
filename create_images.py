@@ -581,7 +581,7 @@ if __name__ == '__main__':
         params = cosmo.CosmologicalParameters(suite=suite)
         d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
         ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
-    elif mock_type == 'hst_acs':
+    elif mock_type == 'candels_acs':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
             (suite == 'IllustrisTNG' and snapnum == 99)):
@@ -594,7 +594,7 @@ if __name__ == '__main__':
         params = cosmo.CosmologicalParameters(suite=suite)
         d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
         ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
-    elif mock_type == 'hst_wfc3':
+    elif mock_type == 'candels_wfc3':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
             (suite == 'IllustrisTNG' and snapnum == 99)):

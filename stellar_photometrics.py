@@ -251,7 +251,7 @@ if __name__ == '__main__':
             # an effective area (just like Pan-STARRS). We just need to
             # convert the units from cm^2 to m^2:
             fluxmag0 = float(denominator) / (h*c) * 1e-4
-        elif mock_type == 'hst_acs' or mock_type == 'hst_wfc3':
+        elif mock_type == 'candels_acs' or mock_type == 'candels_wfc3':
             # Although HST doesn't use AB magnitudes, we use them here
             # for consistency with the rest of the code. The final images
             # have units of counts/s, so the magnitude system used here

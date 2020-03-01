@@ -33,7 +33,7 @@ NPIXELS=-1  # only set if NUM_RHALFS=-1
 #~ NPIXELS=-1  # only set if NUM_RHALFS=-1
 
 LOG_MSTAR_MIN=9.5
-MOCK_TYPE=galex  # generic, pogs, sdss, galex, kids, hst_wfc3, hst_acs
+MOCK_TYPE=galex  # generic, pogs, sdss, galex, kids, candels_wfc3, candels_acs
 PROJ_KIND=xy
 NGB=32
 USE_FOF=1
@@ -49,10 +49,10 @@ elif [ ${MOCK_TYPE} = "sdss" ]; then
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
 elif [ ${MOCK_TYPE} = "kids" ]; then
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/vst.txt
-elif [ ${MOCK_TYPE} = "hst_acs" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/hst_acs.txt
-elif [ ${MOCK_TYPE} = "hst_wfc3" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/hst_wfc3.txt
+elif [ ${MOCK_TYPE} = "candels_acs" ]; then
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/candels_acs.txt
+elif [ ${MOCK_TYPE} = "candels_wfc3" ]; then
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/candels_wfc3.txt
 else
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/${MOCK_TYPE}.txt
 fi
