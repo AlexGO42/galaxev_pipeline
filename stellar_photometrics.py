@@ -220,32 +220,10 @@ if __name__ == '__main__':
             fluxmag0 = float(denominator) / (h*c)
         elif mock_type == 'sdss':
             # SDSS filter curves are expressed as an adimensional quantum
-            # efficiency (electron counts per photon). There are a couple
-            # of ways to obtain the desired calibration:
-            #
-            # 1) Download actual SDSS images and look at the header of the
-            #    FITS files. There is a property called "NMGY" that gives the
-            #    number of nanomaggies (1 maggie = reference flux of 3631 Jy)
-            #    per count. From looking at a couple of frames I found a value
-            #    of 0.0047 nMgy/count (a more robust approach would be to look
-            #    at *all* SDSS frames and get the median or something).
-            #    Inverting this parameter and dividing by the SDSS exposure
-            #    time (53.9 s) gives fluxmag0 = 3.9e9 counts/s.
-            #
-            # 2) Try to calculate fluxmag0 from first principles. First
-            #    we estimate the effective capturing area of the
-            #    telescope's 2.5 m primary mirror:
+            # efficiency (electron counts per photon), so we need to
+            # multiply by the area of the 2.5 m primary mirror:
             area = np.pi * (2.5/2.0)**2  # m^2
-            #    We also take into account that there are six parallel
-            #    scanlines, which basically means that a sixth of the
-            #    incoming light goes into each "column" of CCDs (there
-            #    are also 5 rows of CCDs, one for each filter, each of
-            #    which receives an exposure time of 53.9 seconds):
-            ncamcols = 6
-            #    Now we can convert the "denominator" into counts/s:
-            fluxmag0 = float(denominator) / (h*c) * area / ncamcols
-            #    This gives fluxmag0 = 3.97e9 counts/s, in great agreement
-            #    with the other method described above.
+            fluxmag0 = float(denominator) / (h*c) * area
         elif mock_type == 'galex':
             # Thankfully, GALEX filter curves are already expressed as
             # an effective area (just like Pan-STARRS). We just need to
