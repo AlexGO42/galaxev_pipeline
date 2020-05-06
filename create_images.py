@@ -607,6 +607,18 @@ if __name__ == '__main__':
         params = cosmo.CosmologicalParameters(suite=suite)
         d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
         ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
+    elif mock_type == 'hsc':
+        # If at the last snapshot, set ad hoc redshift
+        if ((suite == 'Illustris' and snapnum == 135) or
+            (suite == 'IllustrisTNG' and snapnum == 99)):
+                use_z = 0.0485236299818  # corresponds to snapnum_last - 4
+                #print('WARNING: Setting use_z=%g.' % (use_z))
+        arcsec_per_pixel = 0.168  # https://hsc.mtk.nao.ac.jp/ssp/survey
+        rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
+        # Note that the angular-diameter distance is expressed in comoving coordinates:
+        params = cosmo.CosmologicalParameters(suite=suite)
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
     else:
         print('mock_type not understood.')
         sys.exit()

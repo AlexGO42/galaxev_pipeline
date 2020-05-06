@@ -220,7 +220,7 @@ if __name__ == '__main__':
             fluxmag0 = float(denominator) / (h*c)
         elif mock_type == 'sdss':
             # SDSS filter curves are expressed as an adimensional quantum
-            # efficiency (electron counts per photon), so we need to
+            # efficiency (electrons per photon), so we need to
             # multiply by the area of the 2.5 m primary mirror:
             area = np.pi * (2.5/2.0)**2  # m^2
             fluxmag0 = float(denominator) / (h*c) * area
@@ -233,12 +233,17 @@ if __name__ == '__main__':
             # Although HST doesn't use AB magnitudes, we use them here
             # for consistency with the rest of the code. The final images
             # have units of counts/s, so the magnitude system used here
-            # is unimportant. The calculations below assume that all the
-            # light goes to the same CCD (unlike SDSS) and that the units
-            # of the transmission curve are counts/photon. These assumptions
+            # is unimportant. The calculations below assume that the units
+            # of the transmission curve are electrons/photon. These assumptions
             # were verified by comparing with the "PHOTFNU" and "PHOTFLAM"
             # attributes found in actual FITS headers from CANDELS.
             area = np.pi * (2.4/2.0)**2  # m^2
+            fluxmag0 = float(denominator) / (h*c) * area
+        elif mock_type == 'hsc':
+            # Like SDSS, I think Hyper Suprime-Cam filter curves are also
+            # expressed as a quantum efficiency (electrons per photon),
+            # so we just multiply by the area of the Subaru telescope.
+            area = np.pi * (8.2/2.0)**2  # m^2
             fluxmag0 = float(denominator) / (h*c) * area
         else:
             print('mock_type not understood.')

@@ -35,8 +35,17 @@ CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
 #NPROCESSES=${SLURM_NTASKS_PER_NODE}
 NPROCESSES=16
 
-for MOCK_TYPE in candels_wfc3 candels_acs; do
-  FILENAME_FILTERS=${FILTER_DIR}/${MOCK_TYPE}.txt
+# mpiexec does not seem to obey the stop signal
+# (https://bugzilla.redhat.com/show_bug.cgi?id=1151657).
+# The following should give me time to send the job to the background
+# before mpiexec is called:
+echo "Sleeping for 10 seconds..."
+sleep 10
+
+#for MOCK_TYPE in candels_wfc3 candels_acs; do
+for MOCK_TYPE in hsc; do
+  #FILENAME_FILTERS=${FILTER_DIR}/${MOCK_TYPE}.txt
+  FILENAME_FILTERS=${FILTER_DIR}/subaru.txt
   STELLAR_PHOTOMETRICS_DIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
   WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
   for SNAPNUM in 25 29 33 40 50 67; do
