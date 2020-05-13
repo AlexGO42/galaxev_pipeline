@@ -391,7 +391,7 @@ def create_images(object_id):
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
     start = time.time()
     print('Doing spatial search...')
-    hsml_ckpc_h = get_hsml(dx[:,0], dx[:,1], dx[:,2], num_neighbors)  # in rhalfs
+    hsml_ckpc_h = get_hsml(dx[:,0], dx[:,1], dx[:,2], num_neighbors)
     print('Time: %g s.' % (time.time() - start))
 
     # Get all fluxes for once and for all
