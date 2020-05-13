@@ -108,18 +108,14 @@ def transform(x, jvec, proj_kind='xy'):
 
     return x_new
 
-def get_hsml(x, y, z, num_neighbors):
+def get_hsml(pos, num_neighbors):
     """
-    Get distance to the Nth (usually 16th) nearest neighbor in 3D.
+    Get distance to the Nth (usually 32nd) nearest neighbor in 3D.
 
     Parameters
     ----------
-    x : array-like
-        x-coordinates of the particles.
-    y : array-like
-        y-coordinates of the particles.
-    z : array-like
-        z-coordinates of the particles.
+    pos : array-like
+        2-dimensional array (Nx3) with the coordinates of the particles.
     num_neighbors : int
         Specifies how many neighbors to search for.
 
@@ -129,13 +125,8 @@ def get_hsml(x, y, z, num_neighbors):
         Distances to the Nth nearest neighbors.
 
     """
-    data = np.empty((len(x), 3))
-    data[:,0] = x.ravel()
-    data[:,1] = y.ravel()
-    data[:,2] = z.ravel()
-
-    tree = cKDTree(data)
-    res = tree.query(data, k=num_neighbors+1)
+    tree = cKDTree(pos)
+    res = tree.query(pos, k=num_neighbors+1)
     hsml = res[0][:,-1]
 
     return hsml
@@ -391,7 +382,7 @@ def create_images(object_id):
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
     start = time.time()
     print('Doing spatial search...')
-    hsml_ckpc_h = get_hsml(dx[:,0], dx[:,1], dx[:,2], num_neighbors)
+    hsml_ckpc_h = get_hsml(dx, num_neighbors)
     print('Time: %g s.' % (time.time() - start))
 
     # Get all fluxes for once and for all
