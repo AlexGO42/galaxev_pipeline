@@ -131,7 +131,7 @@ def get_hsml(pos, num_neighbors):
 
     return hsml
 
-def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, weights=None):
+def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir, weights=None):
     """
     Do adaptive smoothing similar to Torrey et al. (2015).
 
@@ -296,7 +296,7 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     for i, filter_name in enumerate(filter_names):
         H = adaptive_smoothing(
             dx_new[:,0], dx_new[:,1], hsml, xcenters, ycenters, cur_num_rhalfs,
-            weights=fluxes[i,:])
+            codedir, weights=fluxes[i,:])
         # Store in array
         image[i,:,:] = H
 
