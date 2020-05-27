@@ -43,7 +43,6 @@ def get_fluxes(initial_masses_Msun, metallicities, stellar_ages_yr, filter_name)
 
     return fluxes
 
-
 def transform(x, jvec, proj_kind='xy'):
     """
     Return a projection of the particle positions. In all cases we only
@@ -219,7 +218,7 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir, weig
 
     return H
 
-def get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar):
+def get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar, h):
     nsubs = len(mstar)
 
     # Mass bins
@@ -652,7 +651,7 @@ if __name__ == '__main__':
         mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
 
         # Get list of relevant Subfind IDs
-        subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar)
+        subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar, h)
         # Get associated FoF group IDs
         fof_ids = sub_gr_nr[subfind_ids]
         unique_fof_ids = np.unique(fof_ids)
