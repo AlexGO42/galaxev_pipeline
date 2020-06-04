@@ -32,8 +32,24 @@ def get_softening_length_ckpc_h(z, simulation):
     """
     if simulation == 'L75n1820TNG':
         max_softening_length_kpc_h = 0.5  # *physical* kpc/h
+    elif simulation == 'L75n910TNG':
+        max_softening_length_kpc_h = 1.0  # *physical* kpc/h
+    elif simulation == 'L75n455TNG':
+        max_softening_length_kpc_h = 2.0  # *physical* kpc/h
     elif simulation == 'L35n2160TNG':
         max_softening_length_kpc_h = 0.195  # *physical* kpc/h
+    elif simulation == 'L35n1080TNG':
+        max_softening_length_kpc_h = 0.39  # *physical* kpc/h
+    elif simulation == 'L35n540TNG':
+        max_softening_length_kpc_h = 0.78  # *physical* kpc/h
+    elif simulation == 'L35n270TNG':
+        max_softening_length_kpc_h = 1.56  # *physical* kpc/h
+    elif simulation == 'L205n2500TNG':
+        max_softening_length_kpc_h = 1.0  # *physical* kpc/h
+    elif simulation == 'L205n1250TNG':
+        max_softening_length_kpc_h = 2.0  # *physical* kpc/h
+    elif simulation == 'L205n625TNG':
+        max_softening_length_kpc_h = 4.0  # *physical* kpc/h
     else:
         raise NotImplementedError(simulation)
 
