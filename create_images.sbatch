@@ -32,7 +32,7 @@ NPIXELS=-1  # only set if NUM_RHALFS=-1
 #~ NUM_RHALFS=5.0
 #~ NPIXELS=-1  # only set if NUM_RHALFS=-1
 
-LOG_MSTAR_MIN=9.5
+LOG_MSTAR_MIN=9.5  # if -1, read Subfind IDs from file
 MOCK_TYPE=galex  # generic, pogs, sdss, galex, kids, candels_wfc3, candels_acs
 PROJ_KIND=xy
 NGB=32

@@ -371,22 +371,24 @@ if __name__ == '__main__':
         # For performance checks
         start_all = time.time()
 
-        # Define stellar mass bins
-        log_mstar_bin_lower = np.array([log_mstar_min])
-        log_mstar_bin_upper = np.array([13.0])  # hardcoded since we don't expect larger M*
-        mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
-        mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
-
         # Get list of relevant Subfind IDs
-        subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar, h)
+        filename = '%s/subfind_ids.txt' % (synthdir)
+        if log_mstar_bin_lower == -1:
+            subfind_ids = np.loadtxt(filename, dtype=np.int32)
+        else:
+            subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar, h)
+            log_mstar_bin_lower = np.array([log_mstar_min])
+            log_mstar_bin_upper = np.array([13.0])  # hardcoded since we don't expect larger M*
+            mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
+            mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
+            # Print Subfind IDs to a file
+            with open(filename, 'w') as f:
+                for sub_index in subfind_ids:
+                    f.write('%d\n' % (sub_index))
+
         # Get associated FoF group IDs
         fof_ids = sub_gr_nr[subfind_ids]
         unique_fof_ids = np.unique(fof_ids)
-        # Print Subfind IDs to a file
-        filename = '%s/subfind_ids.txt' % (synthdir)
-        with open(filename, 'w') as f:
-            for sub_index in subfind_ids:
-                f.write('%d\n' % (sub_index))
 
         # Create list of "generic" objects (halo or subhalo)
         if use_fof:

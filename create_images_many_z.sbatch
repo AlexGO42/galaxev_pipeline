@@ -22,7 +22,7 @@ SIMULATION=L35n2160TNG
 USE_Z=-1  # set by SNAPNUM below
 NUM_RHALFS=7.5
 NPIXELS=-1  # only set if NUM_RHALFS=-1
-LOG_MSTAR_MIN=9.0
+LOG_MSTAR_MIN=9.0  # if -1, read Subfind IDs from file
 PROJ_KIND=xy
 NGB=32
 USE_FOF=0
