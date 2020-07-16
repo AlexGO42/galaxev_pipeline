@@ -256,12 +256,14 @@ def get_num_rhalfs_npixels(subfind_id):
         raise Exception('Only one of num_rhalfs and npixels should be defined ' +
                         '(the other should be -1).')
     if num_rhalfs > 0:
-        cur_num_rhalfs = num_rhalfs
         cur_npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/ckpc_h_per_pixel))
     elif npixels > 0:
-        assert rhalf[subfind_id] > 0
-        cur_num_rhalfs = npixels*ckpc_h_per_pixel/(2.0*rhalf[subfind_id])
         cur_npixels = npixels
+
+    # In either case, we "update" num_rhalfs so that 2*num_rhalfs
+    # corresponds to an integer number of pixels:
+    assert rhalf[subfind_id] > 0
+    cur_num_rhalfs = cur_npixels*ckpc_h_per_pixel/(2.0*rhalf[subfind_id])
 
     return cur_num_rhalfs, cur_npixels
 
