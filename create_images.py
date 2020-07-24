@@ -218,31 +218,17 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir, weig
 
     return H
 
-def get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar, h):
-    nsubs = len(mstar)
+def get_subfind_ids(snapnum, mstar_min, mstar_max):
 
-    # Mass bins
-    mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
-    mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
-    num_mstar_bins = len(log_mstar_bin_lower)
-
-    # Iterate over mass bins
-    subfind_ids = []
-    for mstar_bin_index in range(num_mstar_bins):
-        mstar_min = 10.0**log_mstar_bin_lower[mstar_bin_index] / 1e10 * h
-        mstar_max = 10.0**log_mstar_bin_upper[mstar_bin_index] / 1e10 * h
-
-        # Only proceed if there are enough galaxies
-        locs_valid = ((mstar >= mstar_min) * (mstar < mstar_max))
-        if np.sum(locs_valid) == 0:
-            print('Not enough galaxies. Skipping...')
-            return
-
-        # Iterate over subhalos
-        for subfind_id in range(nsubs):
-            # Only proceed if current subhalo is within mass range
-            if locs_valid[subfind_id]:
-                subfind_ids.append(subfind_id)
+    # Load subhalo info
+    print('Loading stellar masses...')
+    start = time.time()
+    mstar = il.groupcat.loadSubhalos(
+        basedir, snapnum, fields=['SubhaloMassType'])[:, parttype_stars]
+    print('Time: %g s.' % (time.time() - start))
+    
+    locs_valid = (mstar >= mstar_min) & (mstar < mstar_max)
+    subfind_ids = np.flatnonzero(locs_valid)
 
     return np.array(subfind_ids, dtype=np.int32)
 
@@ -256,14 +242,14 @@ def get_num_rhalfs_npixels(subfind_id):
         raise Exception('Only one of num_rhalfs and npixels should be defined ' +
                         '(the other should be -1).')
     if num_rhalfs > 0:
-        cur_npixels = int(np.ceil(2.0*num_rhalfs*rhalf[subfind_id]/ckpc_h_per_pixel))
+        cur_npixels = int(np.ceil(2.0*num_rhalfs*sub_rhalf[subfind_id]/ckpc_h_per_pixel))
     elif npixels > 0:
         cur_npixels = npixels
 
     # In either case, we "update" num_rhalfs so that 2*num_rhalfs
     # corresponds to an integer number of pixels:
-    assert rhalf[subfind_id] > 0
-    cur_num_rhalfs = cur_npixels*ckpc_h_per_pixel/(2.0*rhalf[subfind_id])
+    assert sub_rhalf[subfind_id] > 0
+    cur_num_rhalfs = cur_npixels*ckpc_h_per_pixel/(2.0*sub_rhalf[subfind_id])
 
     return cur_num_rhalfs, cur_npixels
 
@@ -278,8 +264,8 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
 
     # Normalize by rhalf
-    dx = dx / rhalf[subfind_id]
-    hsml = hsml_ckpc_h / rhalf[subfind_id]
+    dx = dx / sub_rhalf[subfind_id]
+    hsml = hsml_ckpc_h / sub_rhalf[subfind_id]
 
     # Transform particle positions according to 'proj_kind' (2D projection)
     dx_new = transform(dx, jstar_direction[subfind_id], proj_kind=proj_kind)
@@ -625,21 +611,18 @@ if __name__ == '__main__':
         # Load subhalo info
         start = time.time()
         print('Loading subhalo info...')
-        mstar = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloMassType'])[:, parttype_stars]
-        rhalf = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
-        sub_pos = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloPos'])
+        sub_rhalf = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
         with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
             jstar_direction = f['jstar_direction'][:]
         sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
-        nsubs = len(mstar)
         print('Time: %f s.' % (time.time() - start))
     else:
-        rhalf = None
+        sub_rhalf = None
         jstar_direction = None
 
     # For simplicity, all processes will have a copy of these arrays:
     comm.Barrier()
-    rhalf = comm.bcast(rhalf, root=0)
+    sub_rhalf = comm.bcast(sub_rhalf, root=0)
     jstar_direction = comm.bcast(jstar_direction, root=0)
 
     if rank == 0:
@@ -651,12 +634,11 @@ if __name__ == '__main__':
         if log_mstar_min == -1:
             subfind_ids = np.loadtxt(filename, dtype=np.int32)
         else:
-            subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar, h)
-            log_mstar_bin_lower = np.array([log_mstar_min])
-            log_mstar_bin_upper = np.array([13.0])  # hardcoded since we don't expect larger M*
-            mstar_bin_lower = 10.0**log_mstar_bin_lower / 1e10 * h
-            mstar_bin_upper = 10.0**log_mstar_bin_upper / 1e10 * h
-            # Print Subfind IDs to a file
+            log_mstar_max = 13.0  # hardcoded since we don't expect larger M*
+            mstar_min = 10.0**log_mstar_min / 1e10 * h  # 10^10 Msun/h
+            mstar_max = 10.0**log_mstar_max / 1e10 * h  # 10^10 Msun/h
+            subfind_ids = get_subfind_ids(snapnum, mstar_min, mstar_max)
+            # Write Subfind IDs to text file
             with open(filename, 'w') as f:
                 for sub_index in subfind_ids:
                     f.write('%d\n' % (sub_index))
