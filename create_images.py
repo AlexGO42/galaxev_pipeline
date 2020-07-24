@@ -648,7 +648,7 @@ if __name__ == '__main__':
 
         # Get list of relevant Subfind IDs
         filename = '%s/subfind_ids.txt' % (synthdir)
-        if log_mstar_bin_lower == -1:
+        if log_mstar_min == -1:
             subfind_ids = np.loadtxt(filename, dtype=np.int32)
         else:
             subfind_ids = get_subfind_ids(snapnum, log_mstar_bin_lower, log_mstar_bin_upper, mstar, h)
