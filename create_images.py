@@ -471,8 +471,6 @@ if __name__ == '__main__':
 
     # Save images here
     synthdir = '%s/snapnum_%03d/galaxev/%s' % (writedir, snapnum, proj_kind)
-    if use_fof:
-        synthdir += '_fof'
     if use_cf00:
         synthdir += '_cf00'
     datadir = '%s/data' % (synthdir)

@@ -304,8 +304,6 @@ if __name__ == '__main__':
 
     # Save images here
     synthdir = '%s/snapnum_%03d/galaxev/%s' % (writedir, snapnum, proj_kind)
-    if use_fof:
-        synthdir += '_fof'
     datadir = '%s/data' % (synthdir)
 
     # Create write directory if it does not exist
