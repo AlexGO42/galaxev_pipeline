@@ -535,6 +535,14 @@ if __name__ == '__main__':
         params = cosmo.CosmologicalParameters(suite=suite)
         d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
         ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
+    elif mock_type == 'sdss_bcg':
+        use_z = 0.0994018026302  # corresponds to snapnum_last - 8
+        arcsec_per_pixel = 0.396  # https://www.sdss.org/instruments/camera/
+        rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
+        # Note that the angular-diameter distance is expressed in comoving coordinates:
+        params = cosmo.CosmologicalParameters(suite=suite)
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
     elif mock_type == 'galex':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
@@ -616,18 +624,6 @@ if __name__ == '__main__':
             jstar_direction = f['jstar_direction'][:]
         sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
         print('Time: %f s.' % (time.time() - start))
-    else:
-        sub_rhalf = None
-        jstar_direction = None
-
-    # For simplicity, all processes will have a copy of these arrays:
-    comm.Barrier()
-    sub_rhalf = comm.bcast(sub_rhalf, root=0)
-    jstar_direction = comm.bcast(jstar_direction, root=0)
-
-    if rank == 0:
-        # For performance checks
-        start_all = time.time()
 
         # Get list of relevant Subfind IDs
         filename = '%s/subfind_ids.txt' % (synthdir)
@@ -645,11 +641,27 @@ if __name__ == '__main__':
 
         # Get associated FoF group IDs
         fof_ids = sub_gr_nr[subfind_ids]
-        unique_fof_ids = np.unique(fof_ids)
+
+    else:
+        sub_rhalf = None
+        jstar_direction = None
+        subfind_ids = None
+        fof_ids = None
+
+    # For simplicity, all processes will have a copy of these arrays:
+    comm.Barrier()
+    sub_rhalf = comm.bcast(sub_rhalf, root=0)
+    jstar_direction = comm.bcast(jstar_direction, root=0)
+    subfind_ids = comm.bcast(subfind_ids, root=0)
+    fof_ids = comm.bcast(fof_ids, root=0)
+
+    if rank == 0:
+        # For performance checks
+        start_all = time.time()
 
         # Create list of "generic" objects (halo or subhalo)
         if use_fof:
-            object_ids = unique_fof_ids
+            object_ids = np.unique(fof_ids)
         else:
             object_ids = subfind_ids
 

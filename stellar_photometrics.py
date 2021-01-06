@@ -218,7 +218,7 @@ if __name__ == '__main__':
             # divided by hc is already the number of electron counts/s
             # registered by the CCD:
             fluxmag0 = float(denominator) / (h*c)
-        elif mock_type == 'sdss':
+        elif mock_type.startswith('sdss'):
             # SDSS filter curves are expressed as an adimensional quantum
             # efficiency (electrons per photon), so we need to
             # multiply by the area of the 2.5 m primary mirror:

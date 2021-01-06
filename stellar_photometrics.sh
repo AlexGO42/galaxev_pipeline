@@ -18,6 +18,12 @@
 #USE_Z=0.0485236299818  # must be set by hand
 #FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
 
+# SDSS BCG
+MOCK_TYPE=sdss_bcg
+SNAPNUM=91  # just for the filename
+USE_Z=0.0994018026302  # must be set by hand
+FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
+
 ## GALEX
 #MOCK_TYPE=galex
 #SNAPNUM=95  # just for the filename
@@ -35,7 +41,7 @@ FILTER_DIR=${HOME}/SyntheticImages/src/broadband_filters
 CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
 
 SUITE=IllustrisTNG
-WRITEDIR=/u/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
+WRITEDIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
 for USE_CF00 in 0 1; do
   python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} ${FILTER_DIR} ${FILENAME_FILTERS} ${CODEDIR} ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_TYPE}
 done
