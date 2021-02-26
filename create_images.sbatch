@@ -39,8 +39,8 @@ NGB=32
 USE_FOF=1
 USE_CF00=0
 
-BASEDIR=/isaac/ptmp/gc/apillepi/sims.mirror_TNG/${SIMULATION}/output
-AMDIR=/u/vrg/AngularMomentum/output/${SUITE}/${SIMULATION}
+BASEDIR=/virgo/simulations/${SUITE}/${SIMULATION}/output
+AMDIR=/isaac/ptmp/gc/vrg/AngularMomentum/output/${SUITE}/${SIMULATION}
 if [ ${MOCK_TYPE} = "generic" ]; then
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/panstarrs.txt
 elif [ ${MOCK_TYPE} = "pogs" ]; then
@@ -48,7 +48,7 @@ elif [ ${MOCK_TYPE} = "pogs" ]; then
 elif [ ${MOCK_TYPE} = "sdss" ]; then
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
 elif [ ${MOCK_TYPE} = "kids" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/vst.txt
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/kids.txt
 elif [ ${MOCK_TYPE} = "candels_acs" ]; then
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/candels_acs.txt
 elif [ ${MOCK_TYPE} = "candels_wfc3" ]; then
@@ -56,7 +56,7 @@ elif [ ${MOCK_TYPE} = "candels_wfc3" ]; then
 else
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/${MOCK_TYPE}.txt
 fi
-STELLAR_PHOTOMETRICS_DIR=/u/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
+STELLAR_PHOTOMETRICS_DIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
 WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
 CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
 NPROCESSES=${SLURM_NTASKS_PER_NODE}

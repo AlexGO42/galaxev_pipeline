@@ -224,6 +224,11 @@ if __name__ == '__main__':
             # multiply by the area of the 2.5 m primary mirror:
             area = np.pi * (2.5/2.0)**2  # m^2
             fluxmag0 = float(denominator) / (h*c) * area
+        elif mock_type.startswith('kids'):
+            # OmegaCAM filter curves are also adimensional
+            # (https://www.eso.org/sci/facilities/paranal/instruments/omegacam/inst.html).
+            area = np.pi * (2.6/2.0)**2  # m^2
+            fluxmag0 = float(denominator) / (h*c) * area
         elif mock_type == 'galex':
             # Thankfully, GALEX filter curves are already expressed as
             # an effective area (just like Pan-STARRS). We just need to

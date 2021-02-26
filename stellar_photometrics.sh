@@ -18,11 +18,11 @@
 #USE_Z=0.0485236299818  # must be set by hand
 #FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
 
-# SDSS BCG
-MOCK_TYPE=sdss_bcg
-SNAPNUM=91  # just for the filename
-USE_Z=0.0994018026302  # must be set by hand
-FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
+## SDSS BCG
+#MOCK_TYPE=sdss_bcg
+#SNAPNUM=91  # just for the filename
+#USE_Z=0.0994018026302  # must be set by hand
+#FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
 
 ## GALEX
 #MOCK_TYPE=galex
@@ -30,11 +30,17 @@ FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
 #USE_Z=0.0485236299818  # must be set by hand
 #FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/galex.txt
 
-## KiDS
+## KiDS Lingyu
 #MOCK_TYPE=kids
 #SNAPNUM=87  # just for the filename
 #USE_Z=0.1527487689024  # must be set by hand
 #FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/vst.txt
+
+# KiDS
+MOCK_TYPE=kids
+SNAPNUM=91  # just for the filename
+USE_Z=0.0994018026302  # must be set by hand
+FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/kids.txt
 
 BC03_MODEL_DIR=${HOME}/galaxev_code/bc03/Padova1994/chabrier
 FILTER_DIR=${HOME}/SyntheticImages/src/broadband_filters

@@ -557,9 +557,9 @@ if __name__ == '__main__':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
             (suite == 'IllustrisTNG' and snapnum == 99)):
-                use_z = 0.15274876890238098  # corresponds to snapnum_last - 12
+                use_z = 0.0994018026302  # corresponds to snapnum_last - 8
                 #print('WARNING: Setting use_z=%g.' % (use_z))
-        arcsec_per_pixel = 0.21  # Lingyu Wang, private communication
+        arcsec_per_pixel = 0.2  # http://kids.strw.leidenuniv.nl/DR4/releasenotes.php
         rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
