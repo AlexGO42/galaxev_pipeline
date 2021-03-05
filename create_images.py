@@ -260,7 +260,7 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     print('cur_npixels = %d' % (cur_npixels))
 
     # Periodic boundary conditions (center at most bound stellar particle)
-    dx = pos[:] - pos[0]
+    dx = pos[:] - sub_pos[subfind_id]
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
 
     # Normalize by rhalf
@@ -618,6 +618,7 @@ if __name__ == '__main__':
         start = time.time()
         print('Loading subhalo info...')
         sub_rhalf = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
+        sub_pos = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloPos'])
         with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
             jstar_direction = f['jstar_direction'][:]
         sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
@@ -642,6 +643,7 @@ if __name__ == '__main__':
 
     else:
         sub_rhalf = None
+        sub_pos = None
         jstar_direction = None
         subfind_ids = None
         fof_ids = None
@@ -649,6 +651,7 @@ if __name__ == '__main__':
     # For simplicity, all processes will have a copy of these arrays:
     comm.Barrier()
     sub_rhalf = comm.bcast(sub_rhalf, root=0)
+    sub_pos = comm.bcast(sub_pos, root=0)
     jstar_direction = comm.bcast(jstar_direction, root=0)
     subfind_ids = comm.bcast(subfind_ids, root=0)
     fof_ids = comm.bcast(fof_ids, root=0)
