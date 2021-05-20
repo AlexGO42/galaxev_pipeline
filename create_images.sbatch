@@ -2,9 +2,9 @@
 
 #SBATCH --mail-user=v.rodriguez@irya.unam.mx
 #SBATCH --mail-type=ALL
-#SBATCH -J galex_xy_fof
-#SBATCH -o galex_xy_fof.out
-#SBATCH -e galex_xy_fof.err
+#SBATCH -J kids_xy_fof
+#SBATCH -o kids_xy_fof.out
+#SBATCH -e kids_xy_fof.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH -t 2-00:00:00
@@ -15,14 +15,23 @@
 # OMP_NUM_THREADS controls the number of threads your application uses:
 export OMP_NUM_THREADS=$SLURM_NTASKS_PER_NODE
 
+#~ # IllustrisTNG, SDSS/POGS
+#~ SUITE=IllustrisTNG
+#~ SIMULATION=L75n1820TNG
+#~ SNAPNUM=99
+#~ #USE_Z=-1  # usually set by SNAPNUM
+#~ USE_Z=0.0485236299818
+#~ NUM_RHALFS=7.5
+#~ NPIXELS=-1  # only set if NUM_RHALFS=-1
+
 # IllustrisTNG
 SUITE=IllustrisTNG
 SIMULATION=L75n1820TNG
-SNAPNUM=99
-#USE_Z=-1  # usually set by SNAPNUM
-USE_Z=0.0485236299818
-NUM_RHALFS=7.5
-NPIXELS=-1  # only set if NUM_RHALFS=-1
+SNAPNUM=87
+USE_Z=-1  # usually set by SNAPNUM
+#USE_Z=0.15274876890238098
+NUM_RHALFS=-1
+NPIXELS=128  # only set if NUM_RHALFS=-1
 
 #~ # Illustris
 #~ SUITE=Illustris
@@ -32,8 +41,8 @@ NPIXELS=-1  # only set if NUM_RHALFS=-1
 #~ NUM_RHALFS=5.0
 #~ NPIXELS=-1  # only set if NUM_RHALFS=-1
 
-LOG_MSTAR_MIN=9.5  # if -1, read Subfind IDs from file
-MOCK_TYPE=galex  # generic, pogs, sdss, galex, kids, candels_wfc3, candels_acs
+LOG_MSTAR_MIN=9.0  # if -1, read Subfind IDs from file
+MOCK_TYPE=kids_lingyu  # generic, pogs, sdss, galex, candels_wfc3, candels_acs
 PROJ_KIND=xy
 NGB=32
 USE_FOF=1
@@ -47,6 +56,8 @@ elif [ ${MOCK_TYPE} = "pogs" ]; then
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/panstarrs.txt
 elif [ ${MOCK_TYPE} = "sdss" ]; then
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
+elif [ ${MOCK_TYPE} = "kids_lingyu" ]; then
+  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/vst.txt
 elif [ ${MOCK_TYPE} = "kids" ]; then
   FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/kids.txt
 elif [ ${MOCK_TYPE} = "candels_acs" ]; then

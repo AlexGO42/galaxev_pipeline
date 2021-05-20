@@ -553,6 +553,18 @@ if __name__ == '__main__':
         params = cosmo.CosmologicalParameters(suite=suite)
         d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
         ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
+    elif mock_type == 'kids_lingyu':
+        # If at the last snapshot, set ad hoc redshift
+        if ((suite == 'Illustris' and snapnum == 135) or
+            (suite == 'IllustrisTNG' and snapnum == 99)):
+                use_z = 0.15274876890238098  # corresponds to snapnum_last - 12
+                #print('WARNING: Setting use_z=%g.' % (use_z))
+        arcsec_per_pixel = 0.21  # Lingyu Wang, private communication
+        rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
+        # Note that the angular-diameter distance is expressed in comoving coordinates:
+        params = cosmo.CosmologicalParameters(suite=suite)
+        d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
     elif mock_type == 'kids':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
@@ -564,7 +576,7 @@ if __name__ == '__main__':
         # Note that the angular-diameter distance is expressed in comoving coordinates:
         params = cosmo.CosmologicalParameters(suite=suite)
         d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0+z)  # ckpc/h
-        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h  # about 0.174 (ckpc/h)/pixel at z = 0.0485
+        ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
     elif mock_type == 'candels_acs':
         # If at the last snapshot, set ad hoc redshift
         if ((suite == 'Illustris' and snapnum == 135) or
