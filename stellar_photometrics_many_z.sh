@@ -19,7 +19,12 @@ redshifts[29]=2.44422570455
 redshifts[33]=2.00202813925
 redshifts[40]=1.4955121665
 redshifts[50]=0.997294225782
+redshifts[59]=0.700106353719
 redshifts[67]=0.503047523245
+redshifts[72]=0.399926964614
+redshifts[78]=0.297717684517
+redshifts[84]=0.197284182376
+redshifts[91]=0.0994018026302
 
 BC03_MODEL_DIR=${HOME}/galaxev_code/bc03/Padova1994/chabrier
 FILTER_DIR=${HOME}/SyntheticImages/src/broadband_filters
@@ -32,7 +37,7 @@ for MOCK_TYPE in hsc; do
   WRITEDIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
   #FILENAME_FILTERS=${FILTER_DIR}/${MOCK_TYPE}.txt
   FILENAME_FILTERS=${FILTER_DIR}/subaru.txt
-  for SNAPNUM in 25 29 33 40 50 67; do
+  for SNAPNUM in 25 29 33 40 50 59 67 72 78 84 91; do
     USE_Z=${redshifts[${SNAPNUM}]}
     python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} ${FILTER_DIR} ${FILENAME_FILTERS} ${CODEDIR} ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_TYPE}
     echo "Finished for snapshot ${SNAPNUM}."
