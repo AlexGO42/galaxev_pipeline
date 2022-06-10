@@ -204,18 +204,22 @@ if __name__ == '__main__':
 
         # Now that we have the magnitudes (which do not require knowing
         # the units, if any, of the transmission curve), we note that
-        # the "denominator" is essentially the integrated photon
-        # flux that corresponds to a magnitude of zero. We will eventually
+        # the "denominator" is essentially the wavelength-integrated "photon
+        # flux" that corresponds to a magnitude of zero. We will eventually
         # need this for calibration purposes. Our goal is to
-        # express this "magnitude-zero flux" as the total number of
-        # electron counts per second that are registered by the CCD.
-        # This requires knowing the units of the transmission curve,
-        # which are typically different for each instrument.
+        # express this "magnitude-zero flux" as the corresponding number of
+        # electrons per second that are registered by the CCD.
+        # In order to do this, below we calculate a quantity called "fluxmag0"
+        # (following HSC nomenclature) which is the instrumental flux
+        # (in electrons/s) that corresponds to a magnitude of zero.
+        # This requires knowing the units of the transmission curve (i.e.
+        # whether it is given as a capture cross-section or a quantum efficiency)
+        # or, alternatively, applying zero-points for each filter (e.g. HSC).
         if mock_type == 'pogs':
             # In Pan-STARRS, the filter response is given as a capture
-            # cross-section in m^2 counts/photon (Tonry et al. 2012).
+            # cross-section in m^2 electrons/photon (Tonry et al. 2012).
             # This is ideal because the "denominator" calculated above
-            # divided by hc is already the number of electron counts/s
+            # divided by hc is already the number of electrons/s
             # registered by the CCD:
             fluxmag0 = float(denominator) / (h*c)
         elif mock_type.startswith('sdss'):
@@ -245,16 +249,32 @@ if __name__ == '__main__':
             area = np.pi * (2.4/2.0)**2  # m^2
             fluxmag0 = float(denominator) / (h*c) * area
         elif mock_type == 'hsc':
-            # Like SDSS, I think Hyper Suprime-Cam filter curves are also
-            # expressed as a quantum efficiency (electrons per photon),
-            # so we just multiply by the area of the Subaru telescope.
-            area = np.pi * (8.2/2.0)**2  # m^2
-            fluxmag0 = float(denominator) / (h*c) * area
+            # Like SDSS, Hyper Suprime-Cam filter curves are also
+            # expressed as a quantum efficiency (electrons per photon).
+            # I was originally assuming a collecting area with a diameter = 8.2 m,
+            # which yielded the following zero-points (ZP = 2.5 * log10(fluxmag0)),
+            # aka the magnitude that corresponds to 1 electron/s:
+            # ZP(hsc_g) = 29.147
+            # ZP(hsc_r) = 29.222
+            # ZP(hsc_i) = 28.807
+            # ZP(hsc_z) = 27.902
+            # ZP(hsc_y) = 27.525
+            # However, I now use the slightly different (and hopefully
+            # more accurate) values from the official HSC website
+            # (https://www.subarutelescope.org/Observing/Instruments/HSC/sensitivity.html):
+            ZP = {
+                'subaru/hsc_g': 28.8,
+                'subaru/hsc_r': 28.8,  # for the old r-filter, not the new r2-filter
+                'subaru/hsc_i': 28.5,  # for the old i-filter, not the new i2-filter
+                'subaru/hsc_z': 27.5,
+                'subaru/hsc_y': 27.2,
+            }
+            fluxmag0 = 10.0**(ZP[filter_name] / 2.5)
         else:
             print('mock_type not understood.')
             sys.exit()
 
-        dset.attrs['fluxmag0'] = fluxmag0  # in counts/s
+        dset.attrs['fluxmag0'] = fluxmag0  # in electrons/s
         # We also store the assumed redshift and luminosity distance:
         dset.attrs['use_z'] = use_z
         dset.attrs['d_L'] = d_L
@@ -262,4 +282,3 @@ if __name__ == '__main__':
         print('Finished for filter %s.' % (filter_name))
 
     f.close()
-
