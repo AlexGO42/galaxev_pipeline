@@ -204,17 +204,17 @@ if __name__ == '__main__':
 
         # Now that we have the magnitudes (which do not require knowing
         # the units, if any, of the transmission curve), we note that
-        # the "denominator" is essentially the wavelength-integrated "photon
-        # flux" that corresponds to a magnitude of zero. We will eventually
-        # need this for calibration purposes. Our goal is to
-        # express this "magnitude-zero flux" as the corresponding number of
-        # electrons per second that are registered by the CCD.
-        # In order to do this, below we calculate a quantity called "fluxmag0"
-        # (following HSC nomenclature) which is the instrumental flux
-        # (in electrons/s) that corresponds to a magnitude of zero.
-        # This requires knowing the units of the transmission curve (i.e.
-        # whether it is given as a capture cross-section or a quantum efficiency)
-        # or, alternatively, applying zero-points for each filter (e.g. HSC).
+        # the denominator is essentially the wavelength-integrated photon
+        # flux that corresponds to a magnitude of zero. We will eventually
+        # need this for calibration purposes. Our goal is to create mock
+        # images that have the same units as the corresponding real images,
+        # which depends on the instrument or survey. In order to do this,
+        # below we calculate a quantity called "fluxmag0", which gives the
+        # "flux" -- in image units -- that corresponds to a magnitude of zero.
+        # This requires knowing the units, if any, of the transmission curve
+        # (e.g. a capture cross-section in m^2 electrons/photon in the case
+        # of Pan-STARRS and GALEX) or, alternatively, applying appropriate
+        # zeropoints (MAG = -2.5 * log10(data) + ZP) for each filter.
         if mock_type == 'pogs':
             # In Pan-STARRS, the filter response is given as a capture
             # cross-section in m^2 electrons/photon (Tonry et al. 2012).
@@ -229,10 +229,11 @@ if __name__ == '__main__':
             area = np.pi * (2.5/2.0)**2  # m^2
             fluxmag0 = float(denominator) / (h*c) * area
         elif mock_type.startswith('kids'):
-            # OmegaCAM filter curves are also adimensional
-            # (https://www.eso.org/sci/facilities/paranal/instruments/omegacam/inst.html).
-            area = np.pi * (2.6/2.0)**2  # m^2
-            fluxmag0 = float(denominator) / (h*c) * area
+            # The science images from the Kilo-Degree Survey (KiDS) DR4
+            # are in units of ADU/s and appear to have been calibrated
+            # so that the zeropoint is zero (according to the r-band
+            # image headers; I have not checked other bands). Therefore:
+            fluxmag0 = 1.0
         elif mock_type == 'galex':
             # Thankfully, GALEX filter curves are already expressed as
             # an effective area (just like Pan-STARRS). We just need to
