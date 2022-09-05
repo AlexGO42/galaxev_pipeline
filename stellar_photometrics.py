@@ -1,3 +1,9 @@
+"""
+Calculate magnitudes and other photometric properties for a set of
+broadband filters based on models from GALAXEV.
+"""
+# Author: Vicente Rodriguez-Gomez <vrodgom.astro@gmail.com>
+# Licensed under a 3-Clause BSD License.
 import numpy as np
 import h5py
 import sys

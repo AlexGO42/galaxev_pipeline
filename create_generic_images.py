@@ -5,7 +5,8 @@ we make "generic" images of rest-frame SDSS g,r,i,z bands (pre-calculated
 in the Subfind catalogs), stellar mass, and SFR.
 Based on "create_images.py" and "generic_image_test.ipynb".
 """
-
+# Author: Vicente Rodriguez-Gomez <vrodgom.astro@gmail.com>
+# Licensed under a 3-Clause BSD License.
 import numpy as np
 import h5py
 import os

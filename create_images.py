@@ -1,3 +1,10 @@
+"""
+Create synthetic images of Illustris/TNG galaxies using precalculated
+magnitudes from GALAXEV models (see stellar_photometrics.py)
+following the methodology of Rodriguez-Gomez et al. (2019).
+"""
+# Author: Vicente Rodriguez-Gomez <vrodgom.astro@gmail.com>
+# Licensed under a 3-Clause BSD License.
 import numpy as np
 import h5py
 import os

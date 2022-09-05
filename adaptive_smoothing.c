@@ -1,7 +1,9 @@
-#include <math.h>
-
-// Compile as:
+// Functions to perform adaptive image smoothing. Compile as:
 // gcc -o adaptive_smoothing.so -shared -fPIC -O3 adaptive_smoothing.c
+//
+// Author: Vicente Rodriguez-Gomez <vrodgom.astro@gmail.com>
+// Licensed under a 3-Clause BSD License.
+#include <math.h>
 
 double sph_kernel_2d(const double r, const double h) {
     // 2D kernel from Monaghan (1992), re-defined over
