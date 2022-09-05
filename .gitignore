@@ -29,5 +29,8 @@ sync_local.sh
 .project
 .settings/*
 
+# PyCharm stuff
+.idea/*
+
 # Doxygen documentation
 Documentation/*
