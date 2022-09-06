@@ -96,6 +96,9 @@ def read_bc03(bc03_model_dir, high_resolution=False):
 
 
 def apply_cf00(datacube, stellar_ages, wavelengths):
+    """
+    Apply dust model from Charlot & Fall (2000).
+    """
     t_BC = 1e7  # yr
     tau_BC = 1.0
     tau_ISM = 0.3
@@ -111,33 +114,15 @@ def apply_cf00(datacube, stellar_ages, wavelengths):
     return datacube
 
 
-if __name__ == '__main__':
-
-    try:
-        suite = sys.argv[1]
-        writedir = sys.argv[2]
-        bc03_model_dir = sys.argv[3]
-        use_cf00 = bool(int(sys.argv[4]))
-        snapnum = int(sys.argv[5])
-        use_z = float(sys.argv[6])
-        mock_set = sys.argv[7]  # 'hsc', etc.
-    except:
-        print('Arguments: suite writedir bc03_model_dir',
-              'use_cf00 snapnum use_z mock_set')
-        sys.exit()
-
-    # Some additional directories and filenames
-    suitedir = '%s/%s' % (writedir, suite)
-    filter_dir = '%s/filter_curves' % (writedir,)
-    filename_filters = '%s/filters.txt' % (writedir,)
-
-    # If True, use high resolution data (at 3 angstrom intervals) in the
-    # wavelength range from 3200 to 9500 angstroms:
-    high_resolution = False
-
-    # Make sure that write directories exist
-    if not os.path.lexists(suitedir):
-        os.makedirs(suitedir)
+def calculate_magnitudes(
+        suite, use_z, use_cf00, filter_dir, filename_filters, filename_out,
+        datacube, metallicities, stellar_ages, wavelengths):
+    """
+    Calculate AB magnitudes and store them in an HDF5 file,
+    along with some attributes.
+    """
+    num_stellar_ages = len(stellar_ages)
+    num_metallicities = len(metallicities)
 
     # Get luminosity distance (if redshift is too small, use 10 Mpc)
     if use_z < 2.5e-3:
@@ -147,12 +132,6 @@ if __name__ == '__main__':
     else:
         params = cosmo.CosmologicalParameters(suite=suite)
         d_L = cosmo.luminosity_distance(use_z, params)  # meters
-
-    # Read BC03 model data
-    datacube, metallicities, stellar_ages, wavelengths = read_bc03(
-        bc03_model_dir, high_resolution)
-    num_stellar_ages = len(stellar_ages)
-    num_metallicities = len(metallicities)
 
     # Apply Charlot & Fall (2000) model
     if use_cf00:
@@ -175,12 +154,8 @@ if __name__ == '__main__':
     with open(filename_filters, 'r') as f:
         filter_names = list(map(lambda s: s.strip('\n'), f.readlines()))
 
-    # Write output to this file
-    if use_cf00:
-        filename = '%s/stellar_photometrics_cf00_%03d.hdf5' % (suitedir, snapnum)
-    else:
-        filename = '%s/stellar_photometrics_%03d.hdf5' % (suitedir, snapnum)
-    f = h5py.File(filename, 'w')
+    # Open HDF5 for writing
+    f = h5py.File(filename_out, 'w')
     f.create_dataset('metallicities', data=metallicities)
     f.create_dataset('stellar_ages', data=stellar_ages)
 
@@ -212,86 +187,58 @@ if __name__ == '__main__':
                     F_lambda / (1.0 + use_z) * wavelengths * R, x=wavelengths)
                 magnitudes[k, j] = -2.5 * np.log10(numerator / denominator)
 
+        # Create a dataset for the magnitudes and include some attributes.
         dset = f.create_dataset(filter_name, data=magnitudes)
 
-        # Now that we have the magnitudes (which do not require knowing
-        # the units, if any, of the transmission curve), we note that
-        # the denominator is essentially the wavelength-integrated photon
-        # flux that corresponds to a magnitude of zero. We will eventually
-        # need this for calibration purposes. Our goal is to create mock
-        # images that have the same units as the corresponding real images,
-        # which depends on the instrument or survey. In order to do this,
-        # below we calculate a quantity called "fluxmag0", which gives the
-        # "flux" -- in image units -- that corresponds to a magnitude of zero.
-        # This requires knowing the units, if any, of the transmission curve
-        # (e.g. a capture cross-section in m^2 electrons/photon in the case
-        # of Pan-STARRS and GALEX) or, alternatively, applying appropriate
-        # zeropoints (MAG = -2.5 * log10(data) + ZP) for each filter.
-        if mock_set == 'pogs':
-            # In Pan-STARRS, the filter response is given as a capture
-            # cross-section in m^2 electrons/photon (Tonry et al. 2012).
-            # This is ideal because the "denominator" calculated above
-            # divided by hc is already the number of electrons/s
-            # registered by the CCD:
-            fluxmag0 = float(denominator) / (h*c)
-        elif mock_set.startswith('sdss'):
-            # SDSS filter curves are expressed as an adimensional quantum
-            # efficiency (electrons per photon), so we need to
-            # multiply by the area of the 2.5 m primary mirror:
-            area = np.pi * (2.5/2.0)**2  # m^2
-            fluxmag0 = float(denominator) / (h*c) * area
-        elif mock_set.startswith('kids'):
-            # The science images from the Kilo-Degree Survey (KiDS) DR4
-            # are in units of ADU/s and appear to have been calibrated
-            # so that the zeropoint is zero (according to the r-band
-            # image headers; I have not checked other bands). Therefore:
-            fluxmag0 = 1.0
-        elif mock_set == 'galex':
-            # Thankfully, GALEX filter curves are already expressed as
-            # an effective area (just like Pan-STARRS). We just need to
-            # convert the units from cm^2 to m^2:
-            fluxmag0 = float(denominator) / (h*c) * 1e-4
-        elif mock_set == 'candels_acs' or mock_set == 'candels_wfc3':
-            # Although HST doesn't use AB magnitudes, we use them here
-            # for consistency with the rest of the code. The final images
-            # have units of counts/s, so the magnitude system used here
-            # is unimportant. The calculations below assume that the units
-            # of the transmission curve are electrons/photon. These assumptions
-            # were verified by comparing with the "PHOTFNU" and "PHOTFLAM"
-            # attributes found in actual FITS headers from CANDELS.
-            area = np.pi * (2.4/2.0)**2  # m^2
-            fluxmag0 = float(denominator) / (h*c) * area
-        elif mock_set == 'hsc':
-            # Like SDSS, Hyper Suprime-Cam filter curves are also
-            # expressed as a quantum efficiency (electrons per photon).
-            # I was originally assuming a collecting area with a diameter = 8.2 m,
-            # which yielded the following zero-points (ZP = 2.5 * log10(fluxmag0)),
-            # aka the magnitude that corresponds to 1 electron/s:
-            # ZP(hsc_g) = 29.147
-            # ZP(hsc_r) = 29.222
-            # ZP(hsc_i) = 28.807
-            # ZP(hsc_z) = 27.902
-            # ZP(hsc_y) = 27.525
-            # However, I now use the slightly different (and hopefully
-            # more accurate) values from the official HSC website
-            # (https://www.subarutelescope.org/Observing/Instruments/HSC/sensitivity.html):
-            ZP = {
-                'subaru/hsc_g': 28.8,
-                'subaru/hsc_r': 28.8,  # for the old r-filter, not the new r2-filter
-                'subaru/hsc_i': 28.5,  # for the old i-filter, not the new i2-filter
-                'subaru/hsc_z': 27.5,
-                'subaru/hsc_y': 27.2,
-            }
-            fluxmag0 = 10.0**(ZP[filter_name] / 2.5)
-        else:
-            print('mock_set not understood.')
-            sys.exit()
+        # Store the denominator from eq. (8) from the BC03 manual,
+        # in case we need it later for calibration purposes:
+        dset.attrs['denominator'] = float(denominator)
 
-        dset.attrs['fluxmag0'] = fluxmag0  # in electrons/s
-        # We also store the assumed redshift and luminosity distance:
+        # Also store the assumed redshift and the luminosity distance:
         dset.attrs['use_z'] = use_z
         dset.attrs['d_L'] = d_L
 
         print('Finished for filter %s.' % (filter_name))
 
     f.close()
+
+
+if __name__ == '__main__':
+    try:
+        suite = sys.argv[1]
+        writedir = sys.argv[2]
+        bc03_model_dir = sys.argv[3]
+        use_cf00 = bool(int(sys.argv[4]))
+        snapnum = int(sys.argv[5])
+        use_z = float(sys.argv[6])
+        mock_set = sys.argv[7]  # 'hsc', etc.
+    except:
+        print('Arguments: suite writedir bc03_model_dir',
+              'use_cf00 snapnum use_z mock_set')
+        sys.exit()
+
+    # If True, use high resolution data (at 3 angstrom intervals) in the
+    # wavelength range from 3200 to 9500 angstroms:
+    high_resolution = False
+
+    # Some additional directories and filenames
+    suitedir = '%s/%s' % (writedir, suite)
+    filter_dir = '%s/filter_curves' % (writedir,)
+    filename_filters = '%s/filters.txt' % (writedir,)
+    if use_cf00:
+        filename_out = '%s/stellar_photometrics_cf00_%03d.hdf5' % (suitedir, snapnum)
+    else:
+        filename_out = '%s/stellar_photometrics_%03d.hdf5' % (suitedir, snapnum)
+
+    # Make sure that write directories exist
+    if not os.path.lexists(suitedir):
+        os.makedirs(suitedir)
+
+    # Read BC03 model data
+    datacube, metallicities, stellar_ages, wavelengths = read_bc03(
+        bc03_model_dir, high_resolution)
+
+    # Calculate magnitudes and store to HDF5 file
+    calculate_magnitudes(
+        suite, use_z, use_cf00, filter_dir, filename_filters, filename_out,
+        datacube, metallicities, stellar_ages, wavelengths)
