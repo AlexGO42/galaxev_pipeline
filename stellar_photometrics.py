@@ -19,7 +19,8 @@ import cosmology as cosmo
 h = const.h.value  # J*s
 c = const.c.value  # m/s
 
-def read_bc03():
+
+def read_bc03(bc03_model_dir, high_resolution=False):
     """
     Read single stellar population (SSP) model data from GALAXEV.
     Most parameters are hardcoded and might only work with the
@@ -93,6 +94,7 @@ def read_bc03():
 
     return datacube, metallicities, stellar_ages, wavelengths
 
+
 def apply_cf00(datacube, stellar_ages, wavelengths):
     t_BC = 1e7  # yr
     tau_BC = 1.0
@@ -147,7 +149,8 @@ if __name__ == '__main__':
         d_L = cosmo.luminosity_distance(use_z, params)  # meters
 
     # Read BC03 model data
-    datacube, metallicities, stellar_ages, wavelengths = read_bc03()
+    datacube, metallicities, stellar_ages, wavelengths = read_bc03(
+        bc03_model_dir, high_resolution)
     num_stellar_ages = len(stellar_ages)
     num_metallicities = len(metallicities)
 
