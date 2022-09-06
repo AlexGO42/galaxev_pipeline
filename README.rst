@@ -201,12 +201,17 @@ run ``stellar_photometrics.py`` with the appropriate input parameters:
 
     bash stellar_photometrics.sh
 
+This will generate a file called ``stellar_photometrics_091.hdf5``
+(and/or ``stellar_photometrics_cf00_091.hdf5``, if the dust prescription
+from Charlot & Fall 2000 is included) that contains a 2D array
+with the observer-frame magnitudes for each filter.
+
+---------- Work in progress... ----------
+
 Creating the images
 -------------------
 
 Now that we have precalculated all the magnitudes,
-
----------- Work in progress... ----------
 
 
 ** Second stage (creating images): **

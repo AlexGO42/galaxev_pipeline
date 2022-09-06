@@ -84,8 +84,7 @@ def read_bc03(bc03_model_dir, high_resolution=False):
             for j in range(num_stellar_ages):
                 line = f.readline()
                 cur_sed = np.array(line.split()[1:], dtype=np.float64)
-                # There are some extra data points in each line (at least
-                # when using the high-resolution stelib data), so we
+                # There are some extra data points in each line, so we
                 # truncate to the supposed number of wavelengths:
                 datacube[k, j, :] = cur_sed[:num_wavelengths]
             # There are a few more lines after this (with 221 values per line),
@@ -128,7 +127,8 @@ def calculate_magnitudes(
     if use_z < 2.5e-3:
         use_z = 0.0
         d_L = 10.0 * 3.086e22  # 10 Mpc in meters
-        print('WARNING: Assuming that source is at 10 Mpc...')
+        print('WARNING: Observation redshift is too small.',
+              'Assuming that source is at 10 Mpc...')
     else:
         params = cosmo.CosmologicalParameters(suite=suite)
         d_L = cosmo.luminosity_distance(use_z, params)  # meters
@@ -147,8 +147,10 @@ def calculate_magnitudes(
     # Convert rest-frame spectra from Lsun/angstrom to W/m
     datacube *= 3.826e26 * 1e10
 
-    # Convert luminosity to flux
-    datacube *= 1.0 / (4.0 * np.pi * d_L**2)  # W/m^2/m
+    # Convert luminosity to flux in observer-frame.
+    # Note that the (1+z) factor comes from the stretching
+    # of dlambda (spreading of photons in wavelength).
+    datacube *= 1.0 / ((4.0 * np.pi * d_L**2) * (1.0 + use_z))  # W/m^2/m
 
     # Read filter names
     with open(filename_filters, 'r') as f:
@@ -177,14 +179,12 @@ def calculate_magnitudes(
         denominator = it.trapz(
             FAB_lambda * wavelengths * R, x=wavelengths)
 
-        # For now, iterate for every Z, age combination:
+        # Iterate for every Z, age combination:
         for k in range(num_metallicities):
             for j in range(num_stellar_ages):
-                F_lambda = datacube[k, j, :]
-                # (1+z) factor comes from the stretching of dlambda
-                # (spreading of photons in wavelength)
+                F_lambda = datacube[k, j, :]  # observer-frame SED in W/m^2/m
                 numerator = it.trapz(
-                    F_lambda / (1.0 + use_z) * wavelengths * R, x=wavelengths)
+                    F_lambda * wavelengths * R, x=wavelengths)
                 magnitudes[k, j] = -2.5 * np.log10(numerator / denominator)
 
         # Create a dataset for the magnitudes and include some attributes.
