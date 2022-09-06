@@ -12,17 +12,18 @@ import time
 import scipy.interpolate as ip
 import scipy.integrate as it
 
-from astropy.io import fits
 import astropy.constants as const
 import cosmology as cosmo
 
 # Constants
-h = const.h.value
-c = const.c.value
+h = const.h.value  # J*s
+c = const.c.value  # m/s
 
 def read_bc03():
     """
     Read single stellar population (SSP) model data from GALAXEV.
+    Most parameters are hardcoded and might only work with the
+    2013 version of GALAXEV.
     """
     if high_resolution:
         num_wavelengths = 6917
@@ -87,7 +88,7 @@ def read_bc03():
                 # truncate to the supposed number of wavelengths:
                 datacube[k, j, :] = cur_sed[:num_wavelengths]
             # There are a few more lines after this (with 221 values per line),
-            # but I'm not sure what those are.
+            # which we don't need.
     print('Time: %g s.' % (time.time() - start))
 
     return datacube, metallicities, stellar_ages, wavelengths
@@ -114,25 +115,27 @@ if __name__ == '__main__':
         suite = sys.argv[1]
         writedir = sys.argv[2]
         bc03_model_dir = sys.argv[3]
-        filter_dir = sys.argv[4]
-        filename_filters = sys.argv[5]
-        codedir = sys.argv[6]
-        use_cf00 = bool(int(sys.argv[7]))
-        snapnum = int(sys.argv[8])
-        use_z = float(sys.argv[9])
-        mock_type = sys.argv[10]  # 'pogs', 'sdss', etc.
+        use_cf00 = bool(int(sys.argv[4]))
+        snapnum = int(sys.argv[5])
+        use_z = float(sys.argv[6])
+        mock_set = sys.argv[7]  # 'hsc', etc.
     except:
-        print('Arguments: suite writedir bc03_model_dir filter_dir',
-              'filename_filters codedir use_cf00 snapnum use_z mock_type')
+        print('Arguments: suite writedir bc03_model_dir',
+              'use_cf00 snapnum use_z mock_set')
         sys.exit()
+
+    # Some additional directories and filenames
+    suitedir = '%s/%s' % (writedir, suite)
+    filter_dir = '%s/filter_curves' % (writedir,)
+    filename_filters = '%s/filters.txt' % (writedir,)
 
     # If True, use high resolution data (at 3 angstrom intervals) in the
     # wavelength range from 3200 to 9500 angstroms:
     high_resolution = False
 
-    # Make sure write directory exists
-    if not os.path.lexists(writedir):
-        os.makedirs(writedir)
+    # Make sure that write directories exist
+    if not os.path.lexists(suitedir):
+        os.makedirs(suitedir)
 
     # Get luminosity distance (if redshift is too small, use 10 Mpc)
     if use_z < 2.5e-3:
@@ -171,9 +174,9 @@ if __name__ == '__main__':
 
     # Write output to this file
     if use_cf00:
-        filename = '%s/stellar_photometrics_cf00_%03d.hdf5' % (writedir, snapnum)
+        filename = '%s/stellar_photometrics_cf00_%03d.hdf5' % (suitedir, snapnum)
     else:
-        filename = '%s/stellar_photometrics_%03d.hdf5' % (writedir, snapnum)
+        filename = '%s/stellar_photometrics_%03d.hdf5' % (suitedir, snapnum)
     f = h5py.File(filename, 'w')
     f.create_dataset('metallicities', data=metallicities)
     f.create_dataset('stellar_ages', data=stellar_ages)
@@ -221,31 +224,31 @@ if __name__ == '__main__':
         # (e.g. a capture cross-section in m^2 electrons/photon in the case
         # of Pan-STARRS and GALEX) or, alternatively, applying appropriate
         # zeropoints (MAG = -2.5 * log10(data) + ZP) for each filter.
-        if mock_type == 'pogs':
+        if mock_set == 'pogs':
             # In Pan-STARRS, the filter response is given as a capture
             # cross-section in m^2 electrons/photon (Tonry et al. 2012).
             # This is ideal because the "denominator" calculated above
             # divided by hc is already the number of electrons/s
             # registered by the CCD:
             fluxmag0 = float(denominator) / (h*c)
-        elif mock_type.startswith('sdss'):
+        elif mock_set.startswith('sdss'):
             # SDSS filter curves are expressed as an adimensional quantum
             # efficiency (electrons per photon), so we need to
             # multiply by the area of the 2.5 m primary mirror:
             area = np.pi * (2.5/2.0)**2  # m^2
             fluxmag0 = float(denominator) / (h*c) * area
-        elif mock_type.startswith('kids'):
+        elif mock_set.startswith('kids'):
             # The science images from the Kilo-Degree Survey (KiDS) DR4
             # are in units of ADU/s and appear to have been calibrated
             # so that the zeropoint is zero (according to the r-band
             # image headers; I have not checked other bands). Therefore:
             fluxmag0 = 1.0
-        elif mock_type == 'galex':
+        elif mock_set == 'galex':
             # Thankfully, GALEX filter curves are already expressed as
             # an effective area (just like Pan-STARRS). We just need to
             # convert the units from cm^2 to m^2:
             fluxmag0 = float(denominator) / (h*c) * 1e-4
-        elif mock_type == 'candels_acs' or mock_type == 'candels_wfc3':
+        elif mock_set == 'candels_acs' or mock_set == 'candels_wfc3':
             # Although HST doesn't use AB magnitudes, we use them here
             # for consistency with the rest of the code. The final images
             # have units of counts/s, so the magnitude system used here
@@ -255,7 +258,7 @@ if __name__ == '__main__':
             # attributes found in actual FITS headers from CANDELS.
             area = np.pi * (2.4/2.0)**2  # m^2
             fluxmag0 = float(denominator) / (h*c) * area
-        elif mock_type == 'hsc':
+        elif mock_set == 'hsc':
             # Like SDSS, Hyper Suprime-Cam filter curves are also
             # expressed as a quantum efficiency (electrons per photon).
             # I was originally assuming a collecting area with a diameter = 8.2 m,
@@ -278,7 +281,7 @@ if __name__ == '__main__':
             }
             fluxmag0 = 10.0**(ZP[filter_name] / 2.5)
         else:
-            print('mock_type not understood.')
+            print('mock_set not understood.')
             sys.exit()
 
         dset.attrs['fluxmag0'] = fluxmag0  # in electrons/s

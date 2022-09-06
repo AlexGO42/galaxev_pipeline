@@ -1,53 +1,29 @@
 #!/bin/bash
 
-## Generic multi-epoch sample (rest-frame photometry)
-#MOCK_TYPE=generic
-#SNAPNUM=99  # just for the filename
-#USE_Z=0.0
-#FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/panstarrs.txt
+# Create any name for a new set of synthetic images:
+MOCK_SET=hsc
 
-## Mock POGS sample (snapshot 131/95 from Illustris/IllustrisTNG)
-#MOCK_TYPE=pogs
-#SNAPNUM=95  # just for the filename
-#USE_Z=0.0485236299818  # must be set by hand
-#FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/panstarrs.txt
+# A folder corresponding to the above set of synthetic images
+# (can include many simulations, snapshots, etc.)
+WRITEDIR=/path/to/imagedir/${MOCK_SET}
 
-## SDSS
-#MOCK_TYPE=sdss
-#SNAPNUM=95  # just for the filename
-#USE_Z=0.0485236299818  # must be set by hand
-#FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
+# Simulation snapshot, although not really needed yet (only for the filename):
+SNAPNUM=91
 
-## SDSS BCG
-#MOCK_TYPE=sdss_bcg
-#SNAPNUM=91  # just for the filename
-#USE_Z=0.0994018026302  # must be set by hand
-#FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
+# Observation redshift, which usually corresponds to snapnum:
+USE_Z=0.0994018026302
 
-## GALEX
-#MOCK_TYPE=galex
-#SNAPNUM=95  # just for the filename
-#USE_Z=0.0485236299818  # must be set by hand
-#FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/galex.txt
+# Directory with the GALAXEV model files:
+BC03_MODEL_DIR=/path/to/bc03/Padova1994/chabrier
 
-# KiDS Lingyu
-MOCK_TYPE=kids_lingyu
-SNAPNUM=87  # just for the filename
-USE_Z=0.1527487689024  # must be set by hand
-FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/vst.txt
+# Directory with the galaxev_pipeline code:
+CODEDIR=/path/to/galaxev_pipeline
 
-## KiDS
-#MOCK_TYPE=kids
-#SNAPNUM=91  # just for the filename
-#USE_Z=0.0994018026302  # must be set by hand
-#FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/kids.txt
-
-BC03_MODEL_DIR=${HOME}/galaxev_code/bc03/Padova1994/chabrier
-FILTER_DIR=${HOME}/SyntheticImages/src/broadband_filters
-CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
-
+# Illustris or IllustrisTNG (other simulations eventually):
 SUITE=IllustrisTNG
-WRITEDIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
+
+# Calculate magnitudes with and without Charlot & Fall (2000) dust model.
 for USE_CF00 in 0 1; do
-  python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} ${FILTER_DIR} ${FILENAME_FILTERS} ${CODEDIR} ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_TYPE}
+  python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} \
+         ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_SET}
 done
