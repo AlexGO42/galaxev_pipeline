@@ -135,7 +135,8 @@ simulation snapshot.
 
 For concreteness, let us create synthetic images of galaxies from
 snapshot 91 (z = 0.0994) of the TNG50 simulation with settings that
-mimic the Hyper Suprime-Cam (HSC) on the Subaru Telescope. To this
+mimic the Hyper Suprime-Cam (HSC) on the Subaru Telescope. We will
+create images for the the HSC g,r,i,z,Y filters. To this
 end, let us create a directory to store all the relevant data:
 
 .. code:: bash
@@ -145,48 +146,36 @@ end, let us create a directory to store all the relevant data:
 Obtaining filter curves
 -----------------------
 
-Filter transmission curves for numerous instruments can be obtained from the
-`SVO Filter Profile Service <http://svo2.cab.inta-csic.es/theory/fps/>`_
-or from the instrument/survey websites. In principle, this part of
-the process could be automatized with
-`Astroquery <https://astroquery.readthedocs.io/en/latest/svo_fps/svo_fps.html>`_,
-which would be very nice, but at the time of this writing there seem to be
-`connectivity issues <https://github.com/astropy/astroquery/issues/2508>`_,
-so instead we manually download the Subaru/HSC g,r,i,z,Y filter curves
-(in ASCII format) from the SVO Filter Profile Service and and place them in
-a new `filter_curves` subdirectory:
+If the filters of interest (e.g. HSC g,r,i,z,Y) are listed in the
+`SVO Filter Profile Service <http://svo2.cab.inta-csic.es/theory/fps/>`_,
+then they can be retrieved automatically via 
+`Astroquery <https://astroquery.readthedocs.io/en/latest/svo_fps/svo_fps.html>`_.
+For convenience, a batch script (please modify as needed) is provided
+to carry out this task:
 
 .. code:: bash
 
-    cd hsc
-    mkdir filter_curves  # store filter curves here
+    bash get_filter_curves.sh
 
-This text files contain two columns, where the first one should consist
-of the wavelengths in angstroms.
+This writes the filter IDs to a file ``hsc/filters.txt`` and stores
+the filter curves in the folder ``hsc/filter_curves``. Each
+filter curve file is in ASCII format and includes two columns:
+the wavelength in angstroms (AA) and the transmission values.
+Alternatively, if the desired filters are not found in the
+SVO Filter Profile Service, they can be included manually (without
+Astroquery) by listing the filter names in the text file
+``hsc/filters.txt`` and including their transmission curves in the folder
+``hsc/filter_curves``, following the same convention (ASCII format,
+two columns, wavelength in angstroms).
 
-We also create a text file called ``filters.txt`` where we specify the
-filenames of the filter curves (I renamed them slightly), one per line:
-
-.. code:: bash
-
-    hsc_g
-    hsc_r
-    hsc_i
-    hsc_z
-    hsc_y
-
-Note that these transmission curves already include the contribution from the
-instrument and atmosphere (Filter + Instrument + Atmosphere).
+Note that these transmission curves used in this example (HSC g,r,i,z,Y)
+already include the contribution from the instrument and atmosphere
+(Filter + Instrument + Atmosphere).
 
 Calculating magnitudes
 ----------------------
 
-Although GALAXEV provides Fortran programs for calculating the magnitudes
-of SSPs for a given filter response function, we instead perform these
-computations in Python so that they integrate better with the rest of
-the code.
-
-This is done by the ``stellar_photometrics.py`` program, which
+The ``stellar_photometrics.py`` program
 calculates the apparent (observer-frame) magnitude of an SSP
 (normalized to a mass of 1 Msun) as a function of metallicity and
 stellar age, which is stored as a grid (2D array) that can be
@@ -194,15 +183,16 @@ interpolated to obtain a magnitude for any metallicity and stellar age.
 Optionally, this calculation can include effects from an
 unresolved dust distribution using a Charlot & Fall (2000) model.
 
-For convenience, an example batch script has been provided in order to
-run ``stellar_photometrics.py`` with the appropriate input parameters:
+For convenience, an example batch script (please modify as needed)
+has been provided to guide the user on how to run
+``stellar_photometrics.py`` with appropriate input parameters:
 
 .. code:: bash
 
     bash stellar_photometrics.sh
 
-This will generate a file called ``stellar_photometrics_091.hdf5``
-(and/or ``stellar_photometrics_cf00_091.hdf5``, if the dust prescription
+This generates a file called ``stellar_photometrics_091.hdf5``
+(or ``stellar_photometrics_cf00_091.hdf5``, if the dust prescription
 from Charlot & Fall 2000 is included) that contains a 2D array
 with the observer-frame magnitudes for each filter.
 
