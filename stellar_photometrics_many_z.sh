@@ -1,18 +1,11 @@
 #!/bin/bash
 
-# For HST (CANDELS) and HSC, we work with the following snapshots:
-####################
-# snapnum, redshift
-# 25, 3.00813107163
-# 29, 2.44422570455
-# 33, 2.00202813925
-# 40, 1.4955121665
-# 50, 0.997294225782
-# 67, 0.503047523245
-####################
+# This example is similar to stellar_photometrics.sbatch but calculates
+# apparent magnitudes for a large number of redshifts, corresponding to
+# all IllustrisTNG snapshots between 40 and 91 (z = 1.5 to z = 0.1).
 
-# Create associative array (only works with Bash > 4.0)
-# (https://stackoverflow.com/questions/14370133/is-there-a-way-to-create-key-value-pairs-in-bash-script/23697848):
+# Associative array (only works with Bash > 4.0) with all the
+# IllustrisTNG snapshot redshifts:
 declare -A redshifts
 redshifts[0]=2.00464909888e+01
 redshifts[1]=1.49891732400e+01
@@ -115,20 +108,29 @@ redshifts[97]=2.39744283828e-02
 redshifts[98]=9.52166696794e-03
 redshifts[99]=2.22044604925e-16
 
-BC03_MODEL_DIR=${HOME}/galaxev_code/bc03/Padova1994/chabrier
-FILTER_DIR=${HOME}/SyntheticImages/src/broadband_filters
-CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
+# Any user-specified name to identify the current set of synthetic images:
+MOCK_SET=hsc
 
+# A folder to store all the output corresponding to this set of synthetic
+# images (with subdirectories corresponding to different simulations,
+# snapshots, etc., as will become clear later):
+WRITEDIR=/path/to/imagedir/${MOCK_SET}
+
+# Directory with the GALAXEV model files:
+BC03_MODEL_DIR=/path/to/bc03/Padova1994/chabrier
+
+# Directory with the galaxev_pipeline code:
+CODEDIR=/path/to/galaxev_pipeline
+
+# Illustris or IllustrisTNG (other simulations eventually):
 SUITE=IllustrisTNG
-USE_CF00=0
-#for MOCK_TYPE in candels_wfc3 candels_acs; do
-for MOCK_TYPE in hsc; do
-  WRITEDIR=/n/holyscratch01/hernquist_lab/Lab/vrodrigu/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
-  #FILENAME_FILTERS=${FILTER_DIR}/${MOCK_TYPE}.txt
-  FILENAME_FILTERS=${FILTER_DIR}/subaru.txt
-  for SNAPNUM in $(seq 40 91); do
-    USE_Z=${redshifts[${SNAPNUM}]}
-    python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} ${FILTER_DIR} ${FILENAME_FILTERS} ${CODEDIR} ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_TYPE}
-    echo "Finished for snapshot ${SNAPNUM}."
-  done
+
+# Calculate magnitudes with or without Charlot & Fall (2000) dust model:
+USE_CF00=0  # 0 = no, 1 = yes
+
+for SNAPNUM in $(seq 40 91); do
+  USE_Z=${redshifts[${SNAPNUM}]}
+  python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} \
+       ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_SET}
+  echo "Finished for snapshot ${SNAPNUM}."
 done
