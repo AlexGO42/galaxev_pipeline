@@ -15,65 +15,37 @@
 # OMP_NUM_THREADS controls the number of threads your application uses:
 export OMP_NUM_THREADS=$SLURM_NTASKS_PER_NODE
 
-#~ # IllustrisTNG, SDSS/POGS
-#~ SUITE=IllustrisTNG
-#~ SIMULATION=L75n1820TNG
-#~ SNAPNUM=99
-#~ #USE_Z=-1  # usually set by SNAPNUM
-#~ USE_Z=0.0485236299818
-#~ NUM_RHALFS=7.5
-#~ NPIXELS=-1  # only set if NUM_RHALFS=-1
+# User-specified name to identify the current set of synthetic images:
+MOCK_SET=hsc
 
-# IllustrisTNG
+# Root folder to store the corresponding output:
+WRITEDIR=/path/to/imagedir/${MOCK_SET}
+
+# Directory with the galaxev_pipeline code:
+CODEDIR=/path/to/galaxev_pipeline
+
+# Directory with the simulation output
+BASEDIR=/path/to/simulation/output
+
 SUITE=IllustrisTNG
 SIMULATION=L75n1820TNG
-SNAPNUM=87
+SNAPNUM=91
 USE_Z=-1  # usually set by SNAPNUM
-#USE_Z=0.15274876890238098
+ARCSEC_PER_PIXEL=0.168  # https://hsc.mtk.nao.ac.jp/ssp/survey
 NUM_RHALFS=-1
 NPIXELS=128  # only set if NUM_RHALFS=-1
 
-#~ # Illustris
-#~ SUITE=Illustris
-#~ SIMULATION=L75n1820FP
-#~ SNAPNUM=131
-#~ USE_Z=-1  # usually set by SNAPNUM
-#~ NUM_RHALFS=5.0
-#~ NPIXELS=-1  # only set if NUM_RHALFS=-1
-
 LOG_MSTAR_MIN=9.0  # if -1, read Subfind IDs from file
-MOCK_TYPE=kids_lingyu  # generic, pogs, sdss, galex, candels_wfc3, candels_acs
 PROJ_KIND=xy
 NGB=32
 USE_FOF=1
 USE_CF00=0
 
-BASEDIR=/virgo/simulations/${SUITE}/${SIMULATION}/output
 AMDIR=/isaac/ptmp/gc/vrg/AngularMomentum/output/${SUITE}/${SIMULATION}
-if [ ${MOCK_TYPE} = "generic" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/panstarrs.txt
-elif [ ${MOCK_TYPE} = "pogs" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/panstarrs.txt
-elif [ ${MOCK_TYPE} = "sdss" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/sloan.txt
-elif [ ${MOCK_TYPE} = "kids_lingyu" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/vst.txt
-elif [ ${MOCK_TYPE} = "kids" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/kids.txt
-elif [ ${MOCK_TYPE} = "candels_acs" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/candels_acs.txt
-elif [ ${MOCK_TYPE} = "candels_wfc3" ]; then
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/candels_wfc3.txt
-else
-  FILENAME_FILTERS=${HOME}/SyntheticImages/src/broadband_filters/${MOCK_TYPE}.txt
-fi
-STELLAR_PHOTOMETRICS_DIR=/isaac/ptmp/gc/vrg/SyntheticImages/output/${MOCK_TYPE}/${SUITE}
-WRITEDIR=${STELLAR_PHOTOMETRICS_DIR}/${SIMULATION}
-CODEDIR=${HOME}/SyntheticImages/src/galaxev_pipeline
 NPROCESSES=${SLURM_NTASKS_PER_NODE}
 
 mpiexec -n ${NPROCESSES} python ${CODEDIR}/create_images.py \
-    ${SUITE} ${BASEDIR} ${AMDIR} ${FILENAME_FILTERS} \
-    ${STELLAR_PHOTOMETRICS_DIR} ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${USE_Z} \
+    ${SUITE} ${SIMULATION} ${BASEDIR} ${AMDIR} \
+    ${WRITEDIR} ${CODEDIR} ${SNAPNUM} ${USE_Z} ${ARCSEC_PER_PIXEL} \
     ${PROJ_KIND} ${NGB} ${NUM_RHALFS} ${NPIXELS} ${LOG_MSTAR_MIN} ${USE_FOF} \
-    ${USE_CF00} ${MOCK_TYPE} ${NPROCESSES}
+    ${USE_CF00} ${NPROCESSES}
