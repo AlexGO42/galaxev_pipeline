@@ -168,7 +168,7 @@ Astroquery) by listing the filter names in the text file
 ``hsc/filter_curves``, following the same convention (ASCII format,
 two columns, wavelength in angstroms).
 
-Note that these transmission curves used in this example (HSC g,r,i,z,Y)
+Note that the transmission curves used in this example (HSC g,r,i,z,Y)
 already include the contribution from the instrument and atmosphere
 (Filter + Instrument + Atmosphere).
 
@@ -194,7 +194,9 @@ has been provided to guide the user on how to run
 This generates a file called ``stellar_photometrics_091.hdf5``
 (or ``stellar_photometrics_cf00_091.hdf5``, if the dust prescription
 from Charlot & Fall 2000 is included) that contains a 2D array
-with the observer-frame magnitudes for each filter.
+with the apparent (observer-frame) magnitudes for each filter, assuming
+that the observed source is located at a redshift z = 0.0994
+(snapshot 91 in IllustrisTNG).
 
 ---------- Work in progress... ----------
 
@@ -227,6 +229,13 @@ Now that we have precalculated all the magnitudes,
 .. code:: bash
 
     sbatch create_images.sbatch
+
+Note that the batch scripts ``get_filter_curves.sh``,
+``stellar_photometrics.sh``, and ``create_images.sbatch`` are only
+provided as examples. In general, the programs ``stellar_photometrics.py``
+and ``create_images.py`` can be run for any combination of filters,
+pixel scales, and redshifts, and include various parameters that can be
+specified by the user.
 
 Notes
 -----

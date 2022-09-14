@@ -12,12 +12,7 @@ import time
 import scipy.interpolate as ip
 import scipy.integrate as it
 
-import astropy.constants as const
 import cosmology as cosmo
-
-# Constants
-h = const.h.value  # J*s
-c = const.c.value  # m/s
 
 
 def read_bc03(bc03_model_dir, high_resolution=False):
@@ -74,7 +69,7 @@ def read_bc03(bc03_model_dir, high_resolution=False):
             assert len(stellar_ages) == int(words[0]) == num_stellar_ages
             # Next 5 lines are not needed:
             for i in range(5):
-                line = f.readline()
+                f.readline()
             # The next line has the wavelengths:
             line = f.readline()
             words = line.split()
@@ -108,7 +103,8 @@ def apply_cf00(datacube, stellar_ages, wavelengths):
     tau_cube[:, stellar_ages <= t_BC, :] = tau_BC
     tau_cube[:, stellar_ages >  t_BC, :] = tau_ISM
 
-    datacube *= np.exp(-tau_cube*(wavelengths[np.newaxis,np.newaxis,:]/lambda_0)**n)
+    datacube *= np.exp(-tau_cube * (wavelengths[np.newaxis, np.newaxis, :] /
+                                    lambda_0)**n)
 
     return datacube
 
@@ -142,7 +138,8 @@ def calculate_magnitudes(
 
     # AB magnitude system in wavelength units
     FAB_nu = 3631.0 * 1e-26  # W/m^2/Hz
-    FAB_lambda = FAB_nu * c / (wavelengths)**2  # W/m^2/m
+    c = 299792458.0  # m/s
+    FAB_lambda = FAB_nu * c / wavelengths**2  # W/m^2/m
 
     # Convert rest-frame spectra from Lsun/angstrom to W/m
     datacube *= 3.826e26 * 1e10
