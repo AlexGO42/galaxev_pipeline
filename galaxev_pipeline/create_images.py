@@ -22,6 +22,7 @@ KILL_TAG = 1
 WORK_TAG = 0
 parttype_stars = 4
 
+
 def get_fluxes(initial_masses_Msun, metallicities, stellar_ages_yr, filter_name):
     """
     Return "fluxes" in units of maggies (following SDSS nomenclature) in the
@@ -31,14 +32,16 @@ def get_fluxes(initial_masses_Msun, metallicities, stellar_ages_yr, filter_name)
     and can be converted to magnitudes as MAG = -2.5 * log10(DATA).
     """
     if use_cf00:
-        filename = '%s/stellar_photometrics_cf00_%03d.hdf5' % (suitedir, snapnum)
+        filename_bc03 = '%s/stellar_photometrics_cf00_%03d.hdf5' % (
+            suitedir, snapnum)
     else:
-        filename = '%s/stellar_photometrics_%03d.hdf5' % (suitedir, snapnum)
+        filename_bc03 = '%s/stellar_photometrics_%03d.hdf5' % (
+            suitedir, snapnum)
 
-    with h5py.File(filename, 'r') as f:
-        bc03_metallicities = f['metallicities'][:]
-        bc03_stellar_ages = f['stellar_ages'][:]
-        bc03_magnitudes = f[filter_name][:]
+    with h5py.File(filename_bc03, 'r') as f_bc03:
+        bc03_metallicities = f_bc03['metallicities'][:]
+        bc03_stellar_ages = f_bc03['stellar_ages'][:]
+        bc03_magnitudes = f_bc03[filter_name][:]
 
     spline = ip.RectBivariateSpline(
         bc03_metallicities, bc03_stellar_ages, bc03_magnitudes, kx=1, ky=1, s=0)
@@ -53,6 +56,7 @@ def get_fluxes(initial_masses_Msun, metallicities, stellar_ages_yr, filter_name)
     fluxes = 10.0**(-2.0/5.0*magnitudes)
 
     return fluxes
+
 
 def transform(x, proj_kind='xy', jvec=None):
     """
@@ -87,45 +91,46 @@ def transform(x, proj_kind='xy', jvec=None):
         assert len(jvec) == x.shape[1] == 3
 
     # Define unit basis vectors of new reference frame
-    if proj_kind == 'yz':
-        e1 = np.array([0,1,0])
-        e2 = np.array([0,0,1])
+    if proj_kind == 'xy':
+        e1 = np.array([1.0, 0.0, 0.0])
+        e2 = np.array([0.0, 1.0, 0.0])
+    elif proj_kind == 'yz':
+        e1 = np.array([0.0, 1.0, 0.0])
+        e2 = np.array([0.0, 0.0, 1.0])
     elif proj_kind == 'zx':
-        e1 = np.array([0,0,1])
-        e2 = np.array([1,0,0])
-    elif proj_kind == 'xy':
-        e1 = np.array([1,0,0])
-        e2 = np.array([0,1,0])
+        e1 = np.array([0.0, 0.0, 1.0])
+        e2 = np.array([1.0, 0.0, 0.0])
     elif proj_kind == 'planar':
         if jvec is None:
             raise Exception('jvec must be specified for this projection.')
         # New y-axis is the projection of jvec onto the xy plane
         e2 = np.array([jvec[0], jvec[1], 0.0])
         e2 = e2 / np.linalg.norm(e2)  # normalize
-        e1 = np.cross(e2, np.array([0,0,1]))
+        e1 = np.cross(e2, np.array([0.0, 0.0, 1.0]))
     elif proj_kind == 'edgeon':
         if jvec is None:
             raise Exception('jvec must be specified for this projection.')
         # New y-axis is aligned with jvec
         e2 = jvec[:] / np.linalg.norm(jvec)  # normalize
-        e1 = np.cross(e2, np.array([0,0,1]))
+        e1 = np.cross(e2, np.array([0.0, 0.0, 1.0]))
     elif proj_kind == 'faceon':
         if jvec is None:
             raise Exception('jvec must be specified for this projection.')
         # New z-axis is aligned with jvec
         e3 = jvec[:] / np.linalg.norm(jvec)  # normalize
         # New x-axis is chosen to coincide with edge-on projection
-        e1 = np.cross(e3, np.array([0,0,1]))
+        e1 = np.cross(e3, np.array([0.0, 0.0, 1.0]))
         e2 = np.cross(e3, e1)
     else:
         raise Exception('Projection kind not understood.')
 
     # Project onto new axes
     x_new = np.zeros((x.shape[0], 2), dtype=np.float64)
-    x_new[:,0] = np.dot(x, e1)
-    x_new[:,1] = np.dot(x, e2)
+    x_new[:, 0] = np.dot(x, e1)
+    x_new[:, 1] = np.dot(x, e2)
 
     return x_new
+
 
 def get_hsml(pos, num_neighbors):
     """
@@ -150,22 +155,30 @@ def get_hsml(pos, num_neighbors):
 
     return hsml
 
-def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir, weights=None):
+
+def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir,
+                       weights=None):
     """
     Do adaptive smoothing similar to Torrey et al. (2015).
 
     Parameters
     ----------
     x : array-like
-        x-coordinates of the particles.
+        x-coordinates of the particles in units of rhalf.
     y : array-like
-        y-coordinates of the particles.
+        y-coordinates of the particles in units of rhalf.
     hsml : array-like
         Smoothing lengths (same units as x and y).
     xcenters : array-like
-        1-d array with the pixel centers along the x-axis
+        1-d array with the pixel centers along the x-axis.
     ycenters : array-like
-        1-d array with the pixel centers along the y-axis
+        1-d array with the pixel centers along the y-axis.
+    num_rhalfs : scalar
+        Number of stellar half-mass radii on each side from the center.
+        The coordinates are restricted to (-num_rhalfs, num_rhalfs).
+    codedir : str
+        Directory with the galaxev_pipeline code, where the compiled
+        adaptive smoothing module should be found.
     weights : array-like, optional
         Array of the same size as ``x`` and ``y`` with the particle
         weights, e.g., particle masses or fluxes. If ``None``, the
@@ -212,9 +225,6 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir, weig
         ctypes.c_double,
     ]
 
-    start = time.time()
-    print('Doing adaptive smoothing...')
-
     X, Y = np.meshgrid(xcenters, ycenters)
     ny, nx = X.shape
     Y_flat, X_flat = Y.ravel(), X.ravel()
@@ -234,12 +244,14 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir, weig
 
     H = Z_flat.reshape(X.shape)
 
-    print('Time: %g s.' % (time.time() - start))
-
     return H
 
-def get_subfind_ids(snapnum, mstar_min, mstar_max):
 
+def get_subfind_ids(snapnum, mstar_min, mstar_max):
+    """
+    Return the Subfind IDs of galaxies with stellar masses in the
+    interval [mstar_min, mstar_max).
+    """
     # Load subhalo info
     print('Loading stellar masses...')
     start = time.time()
@@ -252,6 +264,7 @@ def get_subfind_ids(snapnum, mstar_min, mstar_max):
 
     return np.array(subfind_ids, dtype=np.int32)
 
+
 def get_num_rhalfs_npixels(subfind_id):
     """
     Helper function to get the current values of num_rhalfs and npixels,
@@ -261,15 +274,16 @@ def get_num_rhalfs_npixels(subfind_id):
     num_rhalfs is measured from the center of the image (i.e., an image
     with num_rhalfs = 7.5 would roughly measure 15.0 * rhalf on each side).
     """
-    # Already checked this, but check again just in case:
-    if num_rhalfs > 0 and npixels > 0:
-        raise Exception('Only one of num_rhalfs and npixels should be defined ' +
-                        '(the other should be -1).')
     if num_rhalfs > 0:
+        assert npixels <= 0
         cur_npixels = int(np.ceil(2.0 * num_rhalfs * sub_rhalf[subfind_id] /
                                   ckpc_h_per_pixel))
     elif npixels > 0:
+        assert num_rhalfs <= 0
         cur_npixels = npixels
+    else:
+        raise Exception("One (and only one) of num_rhalfs and npixels " +
+                        "should be specified (the other should be -1).")
 
     # In either case, we "update" num_rhalfs so that 2.0 * num_rhalfs
     # corresponds exactly to an integer number of pixels:
@@ -277,6 +291,7 @@ def get_num_rhalfs_npixels(subfind_id):
     cur_num_rhalfs = cur_npixels * ckpc_h_per_pixel / (2.0 * sub_rhalf[subfind_id])
 
     return cur_num_rhalfs, cur_npixels
+
 
 def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     """
@@ -312,11 +327,11 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     # Iterate over broadband filters
     for i, filter_name in enumerate(filter_names):
         image[i, :, :] = adaptive_smoothing(
-            dx_new[:,0], dx_new[:,1], hsml, xcenters, ycenters, cur_num_rhalfs,
-            codedir, weights=fluxes[i,:])
+            dx_new[:, 0], dx_new[:, 1], hsml, xcenters, ycenters,
+            cur_num_rhalfs, codedir, weights=fluxes[i, :])
 
     # Convert image units from maggies/rhalf^2 to maggies/pixel_size^2
-    pixel_size_rhalfs =  2.0 * cur_num_rhalfs / float(cur_npixels)  # rhalfs
+    pixel_size_rhalfs = 2.0 * cur_num_rhalfs / float(cur_npixels)  # rhalfs
     image *= pixel_size_rhalfs**2
 
     # Create some header attributes
@@ -339,7 +354,6 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     hdulist.writeto('%s/broadband_%d.fits' % (datadir, subfind_id))
     hdulist.close()
 
-    print('Finished for subhalo %d.\n' % (subfind_id))
 
 def create_images(object_id):
     """
@@ -362,8 +376,6 @@ def create_images(object_id):
         fof_subfind_ids = np.array([object_id], dtype=np.int32)
 
     # Load stellar particle info
-    start = time.time()
-    print('Loading info from snapshot...')
     if use_fof:
         cat = il.snapshot.loadHalo(
             basedir, snapnum, object_id, parttype_stars,
@@ -376,7 +388,6 @@ def create_images(object_id):
     initial_masses = cat['GFM_InitialMass']
     metallicities = cat['GFM_Metallicity']
     formtimes = cat['GFM_StellarFormationTime']  # actually the scale factor
-    print('Time: %f s.' % (time.time() - start))
 
     # Remove wind particles
     locs_notwind = formtimes > 0
@@ -396,21 +407,19 @@ def create_images(object_id):
     # stellar particle) to account for the periodic boundary conditions.
     dx = pos[:] - pos[0]
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
-    start = time.time()
-    print('Doing spatial search...')
     hsml_ckpc_h = get_hsml(dx, num_neighbors)
-    print('Time: %g s.' % (time.time() - start))
 
     # Get all fluxes once and for all.
     fluxes = np.empty((len(filter_names), len(initial_masses_Msun)), dtype=np.float64)
     for i, filter_name in enumerate(filter_names):
-        fluxes[i,:] = get_fluxes(
+        fluxes[i, :] = get_fluxes(
             initial_masses_Msun, metallicities, stellar_ages_yr, filter_name)
 
     for subfind_id in fof_subfind_ids:
         create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes)
 
-    print('Finished for object %d.\n' % (object_id))
+    print('Finished for object %d.\n' % (object_id,))
+
 
 def master():
     """
@@ -430,7 +439,6 @@ def master():
         object_id = object_ids[cur_pos]
         # Get results from slave
         comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
-        print('Slave %i did object %i.' % (status.source, status.tag))
 
         # Send another unit of work to slave
         comm.send(obj=object_id, dest=status.source, tag=WORK_TAG)
@@ -439,7 +447,6 @@ def master():
     # Get remaining results and kill slave processes
     for k in range(1, size):
         comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
-        print('Slave %i did object %i.' % (status.source, status.tag))
 
         # Send KILL_TAG
         comm.send(obj=None, dest=status.source, tag=KILL_TAG)
@@ -524,7 +531,7 @@ if __name__ == '__main__':
     synthdir = '%s/snapnum_%03d/galaxev/%s' % (simdir, snapnum, proj_kind)
     if use_cf00:
         synthdir += '_cf00'
-    datadir = '%s/data' % (synthdir)
+    datadir = '%s/data' % (synthdir,)
 
     # Create write directory if it does not exist
     if rank == 0:
@@ -549,10 +556,10 @@ if __name__ == '__main__':
         use_z = z
         # However, if for some reason we are given the last snapshot,
         # set an arbitrary redshift:
-        if ((suite == 'Illustris' and snapnum == 135) or
-            (suite == 'IllustrisTNG' and snapnum == 99)):
-                use_z = 0.0994018026302  # corresponds to snapnum_last - 8
-                print('WARNING: use_z is too small. Using use_z = %g.' % (use_z,))
+        if ((suite == 'Illustris' and snapnum == 135) or (
+             suite == 'IllustrisTNG' and snapnum == 99)):
+            use_z = 0.0994018026302  # corresponds to snapnum_last - 8
+            print('WARNING: use_z is too small. Setting use_z = %g.' % (use_z,))
 
     # Calculate spatial scale in the simulation (in comoving kpc/h)
     # that corresponds to a pixel:
@@ -563,10 +570,6 @@ if __name__ == '__main__':
 
     # MPI parallelization
     if rank == 0:
-        print('use_z = %g' % (use_z))
-        print('arcsec_per_pixel = %g' % (arcsec_per_pixel))
-        print('ckpc_h_per_pixel = %g' % (ckpc_h_per_pixel))
-
         # Load subhalo info
         start = time.time()
         print('Loading subhalo info...')
@@ -583,18 +586,18 @@ if __name__ == '__main__':
         print('Time: %f s.' % (time.time() - start))
 
         # Get list of relevant Subfind IDs
-        filename = '%s/subfind_ids.txt' % (synthdir)
+        filename_ids = '%s/subfind_ids.txt' % (synthdir,)
         if log_mstar_min == -1:
-            subfind_ids = np.loadtxt(filename, dtype=np.int32)
+            subfind_ids = np.loadtxt(filename_ids, dtype=np.int32)
         else:
             log_mstar_max = 13.0  # hardcoded since we don't expect larger M*
             mstar_min = 10.0**log_mstar_min / 1e10 * h  # 10^10 Msun/h
             mstar_max = 10.0**log_mstar_max / 1e10 * h  # 10^10 Msun/h
             subfind_ids = get_subfind_ids(snapnum, mstar_min, mstar_max)
             # Write Subfind IDs to text file
-            with open(filename, 'w') as f:
+            with open(filename_ids, 'w') as f_ids:
                 for sub_index in subfind_ids:
-                    f.write('%d\n' % (sub_index))
+                    f_ids.write('%d\n' % (sub_index,))
 
         # Get associated FoF group IDs
         fof_ids = sub_gr_nr[subfind_ids]
@@ -634,7 +637,7 @@ if __name__ == '__main__':
         # Create images
         if nprocesses > 1:
             start_time = MPI.Wtime()
-            master(comm)
+            master()
             end_time = MPI.Wtime()
             print("MPI Wtime: %f s.\n" % (end_time - start_time))
         else:  # no MPI
@@ -643,4 +646,4 @@ if __name__ == '__main__':
         print('Total time: %f s.\n' % (time.time() - start_all))
 
     else:
-        slave(comm)
+        slave()
