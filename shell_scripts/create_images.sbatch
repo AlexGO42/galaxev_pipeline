@@ -27,6 +27,10 @@ CODEDIR=/path/to/galaxev_pipeline
 # Directory with the simulation output
 BASEDIR=/path/to/simulation/output
 
+# Directory with the angular momentum vectors. This is only needed for
+# face-on/edge-on projections and can be given a dummy value if not needed:
+AMDIR=${BASEDIR}
+
 SUITE=IllustrisTNG
 SIMULATION=L75n1820TNG
 SNAPNUM=91
@@ -41,7 +45,6 @@ NGB=32
 USE_FOF=1
 USE_CF00=0
 
-AMDIR=/isaac/ptmp/gc/vrg/AngularMomentum/output/${SUITE}/${SIMULATION}
 NPROCESSES=${SLURM_NTASKS_PER_NODE}
 
 mpiexec -n ${NPROCESSES} python ${CODEDIR}/create_images.py \

@@ -49,7 +49,7 @@ def get_fluxes(initial_masses_Msun, metallicities, stellar_ages_yr, filter_name)
 
     return fluxes
 
-def transform(x, jvec, proj_kind='xy'):
+def transform(x, proj_kind='xy', jvec=None):
     """
     Return a projection of the particle positions. In all cases we only
     return the first two coordinates (x, y).
@@ -58,8 +58,6 @@ def transform(x, jvec, proj_kind='xy'):
     ----------
     x : array-like
         2-dimensional array (Nx3) with the particle positions.
-    jvec : array-like
-        Direction of the galaxy's total stellar angular momentum.
     proj_kind : str, optional
         Specify which kind of projection. The possible values are:
 
@@ -70,13 +68,18 @@ def transform(x, jvec, proj_kind='xy'):
         'edgeon' : jvec perpendicular to z-axis.
         'faceon' : jvec parallel to z-axis.
 
+    jvec : array-like, optional
+        Direction of the galaxy's stellar angular momentum.
+        Does not need to be normalized to 1 (this is done anyway).
+
     Returns
     -------
     x_new : array-like
         2-dimensional array (Nx2) with the projected particle positions.
 
     """
-    assert len(jvec) == x.shape[1] == 3
+    if jvec is not None:
+        assert len(jvec) == x.shape[1] == 3
 
     # Define unit basis vectors of new reference frame
     if proj_kind == 'yz':
@@ -89,15 +92,21 @@ def transform(x, jvec, proj_kind='xy'):
         e1 = np.array([1,0,0])
         e2 = np.array([0,1,0])
     elif proj_kind == 'planar':
+        if jvec is None:
+            raise Exception('jvec must be specified for this projection.')
         # New y-axis is the projection of jvec onto the xy plane
         e2 = np.array([jvec[0], jvec[1], 0.0])
         e2 = e2 / np.linalg.norm(e2)  # normalize
         e1 = np.cross(e2, np.array([0,0,1]))
     elif proj_kind == 'edgeon':
+        if jvec is None:
+            raise Exception('jvec must be specified for this projection.')
         # New y-axis is aligned with jvec
         e2 = jvec[:] / np.linalg.norm(jvec)  # normalize
         e1 = np.cross(e2, np.array([0,0,1]))
     elif proj_kind == 'faceon':
+        if jvec is None:
+            raise Exception('jvec must be specified for this projection.')
         # New z-axis is aligned with jvec
         e3 = jvec[:] / np.linalg.norm(jvec)  # normalize
         # New x-axis is chosen to coincide with edge-on projection
@@ -274,7 +283,10 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     hsml = hsml_ckpc_h / sub_rhalf[subfind_id]
 
     # Transform particle positions according to 'proj_kind' (2D projection)
-    dx_new = transform(dx, jstar_direction[subfind_id], proj_kind=proj_kind)
+    if require_jstar:
+        dx_new = transform(dx, proj_kind=proj_kind, jvec=jstar_direction[subfind_id])
+    else:
+        dx_new = transform(dx, proj_kind=proj_kind)
 
     # Define 2D bins (in units of rhalf)
     xedges = np.linspace(-cur_num_rhalfs, cur_num_rhalfs, num=cur_npixels+1)
@@ -446,13 +458,13 @@ if __name__ == '__main__':
         suite = sys.argv[1]
         simulation = sys.argv[2]
         basedir = sys.argv[3]
-        amdir = sys.argv[4]
+        amdir = sys.argv[4]  # can be set to a dummy value if not needed
         writedir = sys.argv[5]
         codedir = sys.argv[6]
         snapnum = int(sys.argv[7])
         use_z = float(sys.argv[8])  # if -1, use intrinsic snapshot redshift
         arcsec_per_pixel = float(sys.argv[9])
-        proj_kind = sys.argv[10]  # 'yz', 'zx', 'xy', 'planar', 'faceon', 'edgeon'
+        proj_kind = sys.argv[10]  # 'xy', 'yz', 'zx', 'planar', 'faceon', 'edgeon'
         num_neighbors = int(sys.argv[11])  # for adaptive smoothing, usually 32
         num_rhalfs = float(sys.argv[12])  # on each side from the center, usually 7.5
         npixels = int(sys.argv[13])  # total # of pixels on each side, usually -1
@@ -471,6 +483,9 @@ if __name__ == '__main__':
     if num_rhalfs > 0 and npixels > 0:
         raise Exception('Only one of num_rhalfs and npixels should be defined ' +
                         '(the other should be -1).')
+
+    # Check if we require the angular momentum vectors
+    require_jstar = proj_kind in ['planar', 'faceon', 'edgeon']
 
     # Some additional directories and filenames
     suitedir = '%s/%s' % (writedir, suite)
@@ -543,11 +558,16 @@ if __name__ == '__main__':
         # Load subhalo info
         start = time.time()
         print('Loading subhalo info...')
-        sub_rhalf = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
+        sub_rhalf = il.groupcat.loadSubhalos(
+            basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
         sub_pos = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloPos'])
-        with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
-            jstar_direction = f['jstar_direction'][:]
         sub_gr_nr = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloGrNr'])
+        # Load angular momentum vectors if necessary
+        if require_jstar:
+            with h5py.File('%s/jstar_%03d.hdf5' % (amdir, snapnum), 'r') as f:
+                jstar_direction = f['jstar_direction'][:]
+        else:
+            jstar_direction = None
         print('Time: %f s.' % (time.time() - start))
 
         # Get list of relevant Subfind IDs
