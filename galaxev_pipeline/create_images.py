@@ -390,53 +390,57 @@ def create_images(object_id):
 
     print('Finished for object %d.\n' % (object_id))
 
-def master(comm):
-    """Master process (to be run by process with rank 0)."""
-    size = comm.Get_size()
+def master():
+    """
+    Master process (to be run by process with rank 0).
+    """
     status = MPI.Status()
     
-    dummy_arr = np.zeros(1, dtype=np.uint32)
-
     # Initialize by sending one unit of work to each slave
     cur_pos = 0
     for k in range(1, size):
         object_id = object_ids[cur_pos]
-        comm.Send(np.array([object_id], dtype=np.uint32), dest=k, tag=WORK_TAG)
+        comm.send(obj=object_id, dest=k, tag=WORK_TAG)
         cur_pos += 1
 
     # While there is more work...
     while cur_pos < len(object_ids):
         object_id = object_ids[cur_pos]
         # Get results from slave
-        comm.Recv(dummy_arr, source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
-        # Send another unit of work to slave
-        comm.Send(np.array([object_id], dtype=np.uint32), dest=status.source, tag=WORK_TAG)
-        # Next iteration
-        cur_pos += 1
+        comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
         print('Slave %i did object %i.' % (status.source, status.tag))
 
-    # Get remaining results and kill slaves
+        # Send another unit of work to slave
+        comm.send(obj=object_id, dest=status.source, tag=WORK_TAG)
+        cur_pos += 1
+
+    # Get remaining results and kill slave processes
     for k in range(1, size):
-        comm.Recv(dummy_arr, source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
-        comm.Send(dummy_arr, dest=status.source, tag=KILL_TAG)
+        comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+        print('Slave %i did object %i.' % (status.source, status.tag))
 
-def slave(comm):
-    """ Slave process (to process one unit of work)."""
+        # Send KILL_TAG
+        comm.send(obj=None, dest=status.source, tag=KILL_TAG)
+
+
+def slave():
+    """
+    Slave process.
+    """
     status = MPI.Status()
-    object_id = np.zeros(1, dtype=np.uint32)
 
-    # Iterate until slaves receives the KILL_TAG
+    # Iterate until slave receives the KILL_TAG
     while True:
-        comm.Recv(object_id, source=0, tag=MPI.ANY_TAG, status=status)
+        object_id = comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
 
         if status.tag == KILL_TAG:
             return
 
         # Do the work
-        create_images(object_id[0])
+        create_images(object_id)
 
         # Let the master know that the job is done
-        comm.Send(np.zeros(1, dtype=np.uint32), dest=0, tag=object_id[0])
+        comm.send(obj=None, dest=0, tag=object_id)
 
 
 if __name__ == '__main__':
@@ -522,8 +526,7 @@ if __name__ == '__main__':
     d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0 + z)
     ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h  # pixel 
 
-    # ------------ MPI PARALLELIZATION STARTS HERE ------------
-    
+    # MPI parallelization
     if rank == 0:
         print('use_z = %g' % (use_z))
         print('arcsec_per_pixel = %g' % (arcsec_per_pixel))
@@ -571,6 +574,13 @@ if __name__ == '__main__':
     subfind_ids = comm.bcast(subfind_ids, root=0)
     fof_ids = comm.bcast(fof_ids, root=0)
 
+    # Check that there are at least as many galaxies as (slave) processes
+    # doing the work.
+    if len(subfind_ids) < nprocesses - 1:
+        raise Exception("Too many processes for too few galaxies. " +
+                        "Should use at most %d." % (len(subfind_ids) + 1,))
+        sys.exit()
+
     if rank == 0:
         # For performance checks
         start_all = time.time()
@@ -595,4 +605,3 @@ if __name__ == '__main__':
 
     else:
         slave(comm)
-
