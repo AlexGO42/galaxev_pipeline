@@ -11,8 +11,7 @@ import os
 import time
 import scipy.interpolate as ip
 import scipy.integrate as it
-
-import cosmology as cosmo
+from astropy.cosmology import FlatLambdaCDM
 
 
 def read_bc03(bc03_model_dir, high_resolution=False):
@@ -126,8 +125,7 @@ def calculate_magnitudes(
         print('WARNING: Observation redshift is too small.',
               'Assuming that source is at 10 Mpc...')
     else:
-        params = cosmo.CosmologicalParameters(suite=suite)
-        d_L = cosmo.luminosity_distance(use_z, params)  # meters
+        d_L = acosmo.luminosity_distance(use_z).value * 3.086e22  # meters
 
     # Apply Charlot & Fall (2000) model
     if use_cf00:
@@ -230,6 +228,14 @@ if __name__ == '__main__':
     # Make sure that write directories exist
     if not os.path.lexists(suitedir):
         os.makedirs(suitedir)
+
+    # Cosmology
+    if suite == 'IllustrisTNG':  # Planck 2015 XIII (Table 4, last column)
+        acosmo = FlatLambdaCDM(H0=67.74, Om0=0.3089, Ob0=0.0486)
+    elif suite == 'Illustris':  # WMAP-7, Komatsu et al. 2011 (Table 1, v2)
+        acosmo = FlatLambdaCDM(H0=70.4, Om0=0.2726, Ob0=0.0456)
+    else:
+        raise Exception("Cosmology not specified.")
 
     # Read BC03 model data
     datacube, metallicities, stellar_ages, wavelengths = read_bc03(

@@ -12,11 +12,11 @@ import sys
 import scipy.interpolate as ip
 from scipy.spatial import cKDTree
 from astropy.io import fits
+from astropy.cosmology import FlatLambdaCDM
 import time
 import ctypes
 
 import illustris_python as il
-import cosmology as cosmo
 
 KILL_TAG = 1
 WORK_TAG = 0
@@ -364,8 +364,7 @@ def create_images(object_id):
     # Prepare input for BC03 model
     initial_masses_Msun = initial_masses * 1e10 / h
     z_form = 1.0/formtimes - 1.0
-    params = cosmo.CosmologicalParameters(suite=suite)
-    stellar_ages_yr = (cosmo.t_Gyr(z, params) - cosmo.t_Gyr(z_form, params)) * 1e9
+    stellar_ages_yr = (acosmo.age(z) - acosmo.age(z_form)).value * 1e9
 
     # Get smoothing lengths in 3D (before making 2D projection)
     # once and for all, in simulation units [ckpc/h].
@@ -478,6 +477,14 @@ if __name__ == '__main__':
     simdir = '%s/%s' % (suitedir, simulation)
     filename_filters = '%s/filters.txt' % (writedir,)
 
+    # Cosmology
+    if suite == 'IllustrisTNG':  # Planck 2015 XIII (Table 4, last column)
+        acosmo = FlatLambdaCDM(H0=67.74, Om0=0.3089, Ob0=0.0486)
+    elif suite == 'Illustris':  # WMAP-7, Komatsu et al. 2011 (Table 1, v2)
+        acosmo = FlatLambdaCDM(H0=70.4, Om0=0.2726, Ob0=0.0456)
+    else:
+        raise Exception("Cosmology not specified.")
+
     # MPI stuff (optional)
     comm, rank, size = None, 0, 1
     if nprocesses > 1:
@@ -505,11 +512,10 @@ if __name__ == '__main__':
     num_filters = len(filter_names)
 
     # Load some info from snapshot header
-    with h5py.File('%s/snapdir_%03d/snap_%03d.0.hdf5' % (basedir, snapnum, snapnum), 'r') as f:
-        header = dict(f['Header'].attrs.items())
-        h = header['HubbleParam']
-        z = header['Redshift']
-        box_size = header['BoxSize']
+    header = il.groupcat.loadHeader(basedir, snapnum)
+    h = header['HubbleParam']
+    z = header['Redshift']
+    box_size = header['BoxSize']
 
     # If use_z is not specified, use the intrinsic snapshot redshift:
     if use_z == -1:
@@ -524,10 +530,9 @@ if __name__ == '__main__':
     # Calculate spatial scale in the simulation (in comoving kpc/h)
     # that corresponds to a pixel:
     rad_per_pixel = arcsec_per_pixel / (3600.0 * 180.0 / np.pi)
-    params = cosmo.CosmologicalParameters(suite=suite)
-    # Angular-diameter distance in comoving coordinates (ckpc/h) at z:
-    d_A_ckpc_h = cosmo.angular_diameter_distance_Mpc(use_z, params) * 1000.0 * h * (1.0 + z)
-    ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h  # pixel 
+    # Angular-diameter distance in comoving coordinates at z (ckpc/h):
+    d_A_ckpc_h = acosmo.angular_diameter_distance(use_z).value * 1000.0 * h * (1.0 + z)
+    ckpc_h_per_pixel = rad_per_pixel * d_A_ckpc_h
 
     # MPI parallelization
     if rank == 0:
@@ -583,7 +588,6 @@ if __name__ == '__main__':
     if len(subfind_ids) < nprocesses - 1:
         raise Exception("Too many processes for too few galaxies. " +
                         "Should use at most %d." % (len(subfind_ids) + 1,))
-        sys.exit()
 
     if rank == 0:
         # For performance checks
