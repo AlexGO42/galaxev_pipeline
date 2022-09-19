@@ -12,7 +12,6 @@ import sys
 import scipy.interpolate as ip
 from scipy.spatial import cKDTree
 from astropy.io import fits
-from mpi4py import MPI
 import time
 import ctypes
 
@@ -461,7 +460,7 @@ if __name__ == '__main__':
         log_mstar_min = float(sys.argv[14])  # minimum log10(M*) of galaxies
         use_fof = bool(int(sys.argv[15]))  # If True, load particles from FoF group
         use_cf00 = bool(int(sys.argv[16]))  # If True, apply Charlot & Fall (2000)
-        nprocesses = int(sys.argv[17])
+        nprocesses = int(sys.argv[17])  # Use MPI if nprocesses > 1
     except:
         print('Arguments: suite simulation basedir amdir ' + 
               'writedir codedir snapnum use_z arcsec_per_pixel ' +
@@ -479,10 +478,13 @@ if __name__ == '__main__':
     simdir = '%s/%s' % (suitedir, simulation)
     filename_filters = '%s/filters.txt' % (writedir,)
 
-    # MPI stuff
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
-    rank = comm.Get_rank()
+    # MPI stuff (optional)
+    comm, rank, size = None, 0, 1
+    if nprocesses > 1:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        size = comm.Get_size()
 
     # Save images here
     synthdir = '%s/snapnum_%03d/galaxev/%s' % (simdir, snapnum, proj_kind)
@@ -494,7 +496,8 @@ if __name__ == '__main__':
     if rank == 0:
         if not os.path.lexists(datadir):
             os.makedirs(datadir)
-    comm.Barrier()
+    if nprocesses > 1:
+        comm.Barrier()
 
     # Read filter names
     with open(filename_filters, 'r') as f:
@@ -567,12 +570,13 @@ if __name__ == '__main__':
         fof_ids = None
 
     # For simplicity, all processes will have a copy of these arrays:
-    comm.Barrier()
-    sub_rhalf = comm.bcast(sub_rhalf, root=0)
-    sub_pos = comm.bcast(sub_pos, root=0)
-    jstar_direction = comm.bcast(jstar_direction, root=0)
-    subfind_ids = comm.bcast(subfind_ids, root=0)
-    fof_ids = comm.bcast(fof_ids, root=0)
+    if nprocesses > 1:
+        comm.Barrier()
+        sub_rhalf = comm.bcast(sub_rhalf, root=0)
+        sub_pos = comm.bcast(sub_pos, root=0)
+        jstar_direction = comm.bcast(jstar_direction, root=0)
+        subfind_ids = comm.bcast(subfind_ids, root=0)
+        fof_ids = comm.bcast(fof_ids, root=0)
 
     # Check that there are at least as many galaxies as (slave) processes
     # doing the work.
@@ -592,15 +596,14 @@ if __name__ == '__main__':
             object_ids = subfind_ids
 
         # Create images
-        if nprocesses == 1:
-            for object_id in object_ids:
-                create_images(object_id)
-        else:
+        if nprocesses > 1:
             start_time = MPI.Wtime()
             master(comm)
             end_time = MPI.Wtime()
             print("MPI Wtime: %f s.\n" % (end_time - start_time))
-
+        else:  # no MPI
+            for object_id in object_ids:
+                create_images(object_id)
         print('Total time: %f s.\n' % (time.time() - start_all))
 
     else:
