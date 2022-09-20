@@ -13,6 +13,7 @@ import scipy.interpolate as ip
 import scipy.integrate as it
 from astropy.cosmology import FlatLambdaCDM
 
+import illustris_python as il
 
 def read_bc03(bc03_model_dir, high_resolution=False):
     """
@@ -201,14 +202,15 @@ def calculate_magnitudes(
 if __name__ == '__main__':
     try:
         suite = sys.argv[1]
-        writedir = sys.argv[2]
-        bc03_model_dir = sys.argv[3]
-        use_cf00 = bool(int(sys.argv[4]))
-        snapnum = int(sys.argv[5])
-        use_z = float(sys.argv[6])
-        mock_set = sys.argv[7]  # 'hsc', etc.
+        basedir = sys.argv[2]
+        writedir = sys.argv[3]
+        bc03_model_dir = sys.argv[4]
+        use_cf00 = bool(int(sys.argv[5]))
+        snapnum = int(sys.argv[6])
+        use_z = float(sys.argv[7])
+        mock_set = sys.argv[8]  # 'hsc', etc.
     except:
-        print('Arguments: suite writedir bc03_model_dir',
+        print('Arguments: suite basedir writedir bc03_model_dir',
               'use_cf00 snapnum use_z mock_set')
         sys.exit()
 
@@ -236,6 +238,20 @@ if __name__ == '__main__':
         acosmo = FlatLambdaCDM(H0=70.4, Om0=0.2726, Ob0=0.0456)
     else:
         raise Exception("Cosmology not specified.")
+
+    # Load snapshot redshift from header
+    header = il.groupcat.loadHeader(basedir, snapnum)
+    z = header['Redshift']
+
+    # If use_z is not specified, use the intrinsic snapshot redshift:
+    if use_z == -1:
+        use_z = z
+        # However, if for some reason we are given the last snapshot,
+        # set an arbitrary redshift:
+        if ((suite == 'Illustris' and snapnum == 135) or (
+             suite == 'IllustrisTNG' and snapnum == 99)):
+            use_z = 0.0994018026302  # corresponds to snapnum_last - 8
+            print('WARNING: use_z is too small. Setting use_z = %g.' % (use_z,))
 
     # Read BC03 model data
     datacube, metallicities, stellar_ages, wavelengths = read_bc03(
