@@ -11,6 +11,7 @@ import os
 import time
 import scipy.interpolate as ip
 import scipy.integrate as it
+import astropy.constants as const
 from astropy.cosmology import FlatLambdaCDM
 
 import illustris_python as il
@@ -120,13 +121,14 @@ def calculate_magnitudes(
     num_metallicities = len(metallicities)
 
     # Get luminosity distance (if redshift is too small, use 10 Mpc)
+    Mpc = 1e6 * const.pc.value  # 1 Mpc in meters
     if use_z < 2.5e-3:
         use_z = 0.0
-        d_L = 10.0 * 3.086e22  # 10 Mpc in meters
+        d_L = 10.0 * Mpc  # meters
         print('WARNING: Observation redshift is too small.',
               'Assuming that source is at 10 Mpc...')
     else:
-        d_L = acosmo.luminosity_distance(use_z).value * 3.086e22  # meters
+        d_L = acosmo.luminosity_distance(use_z).value * Mpc  # meters
 
     # Apply Charlot & Fall (2000) model
     if use_cf00:
@@ -137,11 +139,10 @@ def calculate_magnitudes(
 
     # AB magnitude system in wavelength units
     FAB_nu = 3631.0 * 1e-26  # W/m^2/Hz
-    c = 299792458.0  # m/s
-    FAB_lambda = FAB_nu * c / wavelengths**2  # W/m^2/m
+    FAB_lambda = FAB_nu * const.c.value / wavelengths**2  # W/m^2/m
 
     # Convert rest-frame spectra from Lsun/angstrom to W/m
-    datacube *= 3.826e26 * 1e10
+    datacube *= const.L_sun.value * 1e10
 
     # Convert luminosity to flux in observer-frame.
     # Note that the (1+z) factor comes from the stretching
@@ -160,13 +161,15 @@ def calculate_magnitudes(
     # Iterate over filters
     for filter_name in filter_names:
         # Store magnitudes here:
-        magnitudes = np.zeros((num_metallicities, num_stellar_ages), dtype=np.float32)
+        magnitudes = np.zeros((num_metallicities, num_stellar_ages),
+                              dtype=np.float32)
 
         # Read filter response function
         filter_data = np.loadtxt('%s/%s' % (filter_dir, filter_name))
         filter_lambda, filter_response = filter_data.T
         filter_lambda *= 1e-10  # to meters
-        filter_interp = ip.interp1d(filter_lambda, filter_response, bounds_error=False, fill_value=0.0)
+        filter_interp = ip.interp1d(filter_lambda, filter_response,
+                                    bounds_error=False, fill_value=0.0)
 
         # Apply eq. (8) from the BC03 manual to calculate the apparent
         # magnitude of the integrated photon flux collected by a detector
