@@ -225,6 +225,9 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir,
         ctypes.c_double,
     ]
 
+    if verbose:
+        print('Doing adaptive smoothing...')
+
     X, Y = np.meshgrid(xcenters, ycenters)
     ny, nx = X.shape
     Y_flat, X_flat = Y.ravel(), X.ravel()
@@ -300,6 +303,9 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     Note that (for historical reasons) we work in units of rhalf.
     """
     cur_num_rhalfs, cur_npixels = get_num_rhalfs_npixels(subfind_id)
+    if verbose:
+        print('cur_num_rhalfs = %.1f' % (cur_num_rhalfs,))
+        print('cur_npixels = %d' % (cur_npixels,))
 
     # Periodic boundary conditions (center at most bound stellar particle)
     dx = pos[:] - sub_pos[subfind_id]
@@ -354,6 +360,9 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     hdulist.writeto('%s/broadband_%d.fits' % (datadir, subfind_id))
     hdulist.close()
 
+    if verbose:
+        print('Finished for subhalo %d.\n' % (subfind_id,))
+
 
 def create_images(object_id):
     """
@@ -376,14 +385,16 @@ def create_images(object_id):
         fof_subfind_ids = np.array([object_id], dtype=np.int32)
 
     # Load stellar particle info
+    fields = ['Coordinates', 'GFM_InitialMass', 'GFM_Metallicity',
+              'GFM_StellarFormationTime']
+    if verbose:
+        print('Loading particle data...')
     if use_fof:
         cat = il.snapshot.loadHalo(
-            basedir, snapnum, object_id, parttype_stars,
-            fields=['Coordinates', 'GFM_InitialMass', 'GFM_Metallicity', 'GFM_StellarFormationTime'])
+            basedir, snapnum, object_id, parttype_stars, fields=fields)
     else:
         cat = il.snapshot.loadSubhalo(
-            basedir, snapnum, object_id, parttype_stars,
-            fields=['Coordinates', 'GFM_InitialMass', 'GFM_Metallicity', 'GFM_StellarFormationTime'])
+            basedir, snapnum, object_id, parttype_stars, fields=fields)
     pos = cat['Coordinates']  # comoving kpc/h
     initial_masses = cat['GFM_InitialMass']
     metallicities = cat['GFM_Metallicity']
@@ -405,6 +416,8 @@ def create_images(object_id):
     # once and for all, in simulation units [ckpc/h].
     # We temporarily set an arbitrary center (the position of the most bound
     # stellar particle) to account for the periodic boundary conditions.
+    if verbose:
+        print('Calculating smoothing lengths...')
     dx = pos[:] - pos[0]
     dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
     hsml_ckpc_h = get_hsml(dx, num_neighbors)
@@ -491,11 +504,12 @@ if __name__ == '__main__':
         use_fof = bool(int(sys.argv[15]))  # If True, load particles from FoF group
         use_cf00 = bool(int(sys.argv[16]))  # If True, apply Charlot & Fall (2000)
         nprocesses = int(sys.argv[17])  # Use MPI if nprocesses > 1
+        verbose = bool(int(sys.argv[18]))
     except:
         print('Arguments: suite simulation basedir amdir ' + 
               'writedir codedir snapnum use_z arcsec_per_pixel ' +
               'proj_kind num_neighbors num_rhalfs npixels log_mstar_min ' +
-              'use_cf00 use_fof nprocesses')
+              'use_cf00 use_fof nprocesses verbose')
         sys.exit()
 
     # Check input
@@ -570,6 +584,11 @@ if __name__ == '__main__':
 
     # MPI parallelization
     if rank == 0:
+        if verbose:
+            print('snapnum = %d, use_z = %g' % (snapnum, use_z))
+            print('arcsec_per_pixel = %g' % (arcsec_per_pixel,))
+            print('ckpc_h_per_pixel = %g' % (ckpc_h_per_pixel,))
+
         # Load subhalo info
         start = time.time()
         print('Loading subhalo info...')
