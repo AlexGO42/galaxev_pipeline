@@ -12,10 +12,10 @@ MOCK_SET=hsc
 WRITEDIR=/path/to/imagedir/${MOCK_SET}
 
 # Simulation snapshot, although not really needed yet (only for the filename):
-SNAPNUM=91
+SNAPNUM=78
 
 # Observation redshift, which usually corresponds to snapnum:
-USE_Z=0.0994018026302
+USE_Z=0.297717684517
 
 # Directory with the GALAXEV model files:
 BC03_MODEL_DIR=/path/to/bc03/Padova1994/chabrier
@@ -29,5 +29,6 @@ SUITE=IllustrisTNG
 # Calculate magnitudes with or without Charlot & Fall (2000) dust model:
 USE_CF00=0  # 0 = no, 1 = yes
 
-python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} \
-       ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_SET}
+python ${CODEDIR}/galaxev_pipeline/stellar_photometrics.py \
+    ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} \
+    ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_SET}

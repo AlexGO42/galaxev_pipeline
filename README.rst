@@ -134,7 +134,7 @@ typically (but not necessarily) equal to the redshift of the
 simulation snapshot.
 
 For concreteness, let us create synthetic images of galaxies from
-snapshot 91 (z = 0.0994) of the TNG50 simulation with settings that
+snapshot 78 (z = 0.2977) of the TNG100 simulation with settings that
 mimic the Hyper Suprime-Cam (HSC) on the Subaru Telescope. We will
 create images for the the HSC g,r,i,z,Y filters. To this
 end, let us create a directory to store all the relevant data:
@@ -142,6 +142,12 @@ end, let us create a directory to store all the relevant data:
 .. code:: bash
 
     mkdir hsc
+
+In the following sections, some shell scripts are provided as examples
+(also for the current HSC example). In general, however, the programs
+``stellar_photometrics.py`` and ``create_images.py`` can be run for any
+combination of filters, pixel scales, and redshifts, and accept various
+command-line parameters to customize the synthetic images.
 
 Obtaining filter curves
 -----------------------
@@ -191,80 +197,57 @@ has been provided to guide the user on how to run
 
     bash stellar_photometrics.sh
 
-This generates a file called ``stellar_photometrics_091.hdf5``
-(or ``stellar_photometrics_cf00_091.hdf5``, if the dust prescription
+This generates a file called ``stellar_photometrics_078.hdf5``
+(or ``stellar_photometrics_cf00_078.hdf5``, if the dust prescription
 from Charlot & Fall 2000 is included) that contains a 2D array
 with the apparent (observer-frame) magnitudes for each filter, assuming
-that the observed source is located at a redshift z = 0.0994
-(snapshot 91 in IllustrisTNG).
-
----------- Work in progress... ----------
+that the observed source is located at a redshift z = 0.2977
+(snapshot 78 in IllustrisTNG).
 
 Creating the images
 -------------------
 
-Now that we have precalculated all the magnitudes,
+Now that we have the precalculated magnitude tables, the program
+``create_images.py`` can be used to generate synthetic images of
+simulated galaxies for the chosen broadband filters, implementing an
+adaptive smoothing scheme for the stellar particles with a smoothing
+scale given by the distance to the Nth nearest neighbor (usually N=32).
 
+The image generation stage requires knowing the pixel scale of the
+instrument (in arcsec) and setting a few other parameters, such as the
+field of view, the projection (e.g. face-on, edge-on, or aligned with the
+axes of the simulation box), and whether or not to include neighboring
+galaxies (within the same parent halo).
 
-** Second stage (creating images): **
-
-
-- ``create_images.py`` : Once the magnitude tables have been calculated,
-  this program generates synthetic images for each broadband filter at a
-  given pixel scale, implementing an adaptive smoothing length equal to
-  the Nth nearest neighbor (usually N=16, e.g. Torrey et al. 2015).
-
-
-
-- Compile the external C module as:
-
-.. code:: bash
-
-    gcc -o adaptive_smoothing.so -shared -fPIC -O3 adaptive_smoothing.c
-
-- The images are created by running ``create_images.py`` with
-  appropriate input parameters. For convenience, an example batch script
-  is also provided for this purpose:
+For convenience, an example batch script is once again provided for
+this purpose, which can be copied and modified as needed:
 
 .. code:: bash
 
-    sbatch create_images.sbatch
+    bash create_images.sh
 
-Note that the batch scripts ``get_filter_curves.sh``,
-``stellar_photometrics.sh``, and ``create_images.sbatch`` are only
-provided as examples. In general, the programs ``stellar_photometrics.py``
-and ``create_images.py`` can be run for any combination of filters,
-pixel scales, and redshifts, and include various parameters that can be
-specified by the user.
+Note that ``create_images.py`` is able to create many images in parallel
+using MPI, and that the script ``create_images.sh`` can be easily modified
+for submission to a job scheduler (e.g. SLURM) in a computer cluster.
 
-Notes
------
-
-- By default, each image is a square with 20 stellar half-mass radii
-  on each side (``num_rhalfs = 10``). In general, this is enough to
-  include low surface brightness features in the outskirts and/or to
-  reliably fit Sersic profiles.
-- For reasons dating back to past projects (from which the current
-  code has evolved), the code internally works in units of the stellar
-  half-mass radius.
-- As part of the input parameters, the code requires the angular momentum
-  vectors of all galaxies in the snapshot of interest. This allows the
-  code to (optionally) create face-on and edge-on projections. However,
-  if the angular momentum vectors are not available, the code can still
-  work with minimal modification (e.g., setting ``jvec = None``, etc.).
+Running the above script (after setting the correct directories, etc.)
+creates *idealized* synthetic images of the 15 most massive galaxies
+(Mstar > 10^12 Msun, including the intracluster light) from snapshot 78
+(z ~ 0.3) of TNG100, showing satellite galaxies as well, with a fixed
+image size of 224x224 pixels and HSC settings (pixel scale and filters).
 
 Author
-------
+======
 
 Vicente Rodriguez-Gomez (vrodgom.astro@gmail.com)
 
 Citing
-------
+======
 
 This code is fully described in
 `Rodriguez-Gomez et al. (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.483.4140R>`_.
 
 Licensing
----------
+=========
 
 Licensed under a 3-Clause BSD License.

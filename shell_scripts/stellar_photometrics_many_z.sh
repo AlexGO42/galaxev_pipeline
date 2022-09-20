@@ -130,7 +130,8 @@ USE_CF00=0  # 0 = no, 1 = yes
 
 for SNAPNUM in $(seq 40 91); do
   USE_Z=${redshifts[${SNAPNUM}]}
-  python ${CODEDIR}/stellar_photometrics.py ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} \
-       ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_SET}
+  python ${CODEDIR}/galaxev_pipeline/stellar_photometrics.py \
+      ${SUITE} ${WRITEDIR} ${BC03_MODEL_DIR} \
+      ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_SET}
   echo "Finished for snapshot ${SNAPNUM}."
 done
