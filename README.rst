@@ -37,8 +37,8 @@ image (with a given pixel scale), but instead of treating the particles as
 point-like, their light contribution is convolved with a kernel with a
 spatially varying smoothing scale, similar to the methodology described in
 `Torrey et al. (2015) <https://ui.adsabs.harvard.edu/abs/2015MNRAS.447.2753T>`_.
-This procedure yields "idealized" images (i.e. as they would be observed
-by a perfect telescope with a point-like PSF and zero background noise),
+This procedure yields "idealized" images (i.e., as they would be observed
+by a perfect telescope with a point-like PSF and negligible noise),
 which can be further processed to create "realistic" images that can be
 directly compared to observations (see Rodriguez-Gomez et al. 2019,
 for more details).
@@ -134,7 +134,7 @@ typically (but not necessarily) equal to the redshift of the
 simulation snapshot.
 
 For concreteness, let us create synthetic images of galaxies from
-snapshot 78 (z = 0.2977) of the TNG100 simulation with settings that
+snapshot 78 (*z* = 0.2977) of the TNG100 simulation with settings that
 mimic the Hyper Suprime-Cam (HSC) on the Subaru Telescope. We will
 create images for the the HSC g,r,i,z,Y filters. To this
 end, let us create a directory to store all the relevant data:
@@ -201,7 +201,7 @@ This generates a file called ``stellar_photometrics_078.hdf5``
 (or ``stellar_photometrics_cf00_078.hdf5``, if the dust prescription
 from Charlot & Fall 2000 is included) that contains a 2D array
 with the apparent (observer-frame) magnitudes for each filter, assuming
-that the observed source is located at a redshift z = 0.2977
+that the observed source is located at a redshift *z* = 0.2977
 (snapshot 78 in IllustrisTNG).
 
 Creating the images
@@ -231,10 +231,52 @@ using MPI, and that the script ``create_images.sh`` can be easily modified
 for submission to a job scheduler (e.g. SLURM) in a computer cluster.
 
 Running the above script (after setting the correct directories, etc.)
-creates *idealized* synthetic images of the 15 most massive galaxies
+creates *idealized* synthetic images for the most massive galaxies
 (Mstar > 10^12 Msun, including the intracluster light) from snapshot 78
-(z ~ 0.3) of TNG100, showing satellite galaxies as well, with a fixed
-image size of 224x224 pixels and HSC settings (pixel scale and filters).
+(z ~ 0.3) of TNG100, showing stars from neighboring galaxies as well,
+with a fixed image size of 224x224 pixels and HSC settings
+(pixel scale and filters). The resulting idealized images have units of "maggies"
+(following SDSS nomenclature), which means that the zero-point is
+exactly zero and that magnitudes can be calculated simply as
+MAG = -2.5 * log10(DATA). The output is stored in FITS files, each
+with a main HDU object in which the different "layers" correspond
+to the filters of interest. The figure below shows RGB composite images
+(for the HSC *i,r,g* bands, respectively), generated with the example
+script ``extra/view_rgb_composites.py``, for the first nine objects
+considered in this example.
+
+Applying realism
+================
+
+The goal of the GALAXEV pipeline is to create "idealized" synthetic images,
+i.e., as seen by an instrument with a point-like point spread function (PSF)
+and without any sources of noise (infinite signal-to-noise ratio). These
+idealized images can then be further processed in order to make them
+"realistic", which facilitates robust comparisons to observations, as done in 
+`Rodriguez-Gomez et al. (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.483.4140R>`_
+and other works.
+
+Since the "realism" stage largely depends on the set of observations
+that one wishes to compare against, it would be difficult to implement
+(and maintain) a unified solution that works for all instruments and
+surveys. Therefore, the realism stage is ultimately left to the end user.
+However, an example is provided in ``extra/apply_realism.py`` that
+applies a moderate degree of realism to the HSC *i*-band images of the
+*z* ~ 0.3 objects considered in the example above.
+
+Briefly, the procedure in ``extra/apply_realism.py`` consists in
+(i) convolving with a PSF, (ii) applying shot (Poisson) noise, and
+(iii) adding uniform Gaussian background noise, adopting settings
+(seeing, sensitivity, zero-point, etc.) that match those of
+real HSC *i*-band images. In step (i), the PSF is assumed to be
+a simple 2D Gaussian, which might not be accurate for some
+applications. In step (iii), instead of adding uniform
+background noise, the idealized images could be inserted into
+real HSC backgrounds, which would achieve a higher level of
+realism, but is not done here for the sake of simplicity.
+The figure below shows the results of applying steps (i), (ii),
+and (iii) to the HSC *i*-band images of the *z* ~ 0.3 objects
+from the previous section.
 
 Author
 ======
