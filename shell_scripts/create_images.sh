@@ -66,7 +66,13 @@ NPROCESSES=1
 # If verbose, print some additional output:
 VERBOSE=1  # 0 = no, 1 = yes
 
-mpiexec -n ${NPROCESSES} python ${CODEDIR}/galaxev_pipeline/create_images.py \
+# Create images, with or without MPI
+if [ ${NPROCESSES} -eq 1 ]; then
+  EXEC=python
+else
+  EXEC="mpiexec -n ${NPROCESSES} python"
+fi
+${EXEC} ${CODEDIR}/galaxev_pipeline/create_images.py \
     ${SUITE} ${SIMULATION} ${BASEDIR} ${AMDIR} \
     ${WRITEDIR} ${CODEDIR}/galaxev_pipeline ${SNAPNUM} ${USE_Z} \
     ${ARCSEC_PER_PIXEL} ${PROJ_KIND} ${NGB} ${NUM_RHALFS} ${NPIXELS} \
