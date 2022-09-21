@@ -53,7 +53,7 @@ if __name__ == '__main__':
     ]
 
     # View the first nine composite images with imshow:
-    fig = plt.figure(figsize=(9, 9))
+    fig = plt.figure(figsize=(8.3, 8.3))
     fig.subplots_adjust(left=0.0, right=1.0, bottom=0.0, top=1.0, hspace=0.02, wspace=0.02)
     for k, subfind_id in enumerate(subfind_ids[:9]):
         ax = fig.add_subplot(3, 3, k + 1)

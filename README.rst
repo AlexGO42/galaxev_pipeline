@@ -245,6 +245,9 @@ to the filters of interest. The figure below shows RGB composite images
 script ``extra/view_rgb_composites.py``, for the first nine objects
 considered in this example.
 
+.. image:: extra/hsc_idealized.png
+  :alt: Idealized HSC composite images (g,r,i bands)
+
 Applying realism
 ================
 
@@ -277,6 +280,9 @@ realism, but is not done here for the sake of simplicity.
 The figure below shows the results of applying steps (i), (ii),
 and (iii) to the HSC *i*-band images of the *z* ~ 0.3 objects
 from the previous section.
+
+.. image:: extra/hsc_realistic.png
+  :alt: Realistic HSC i-band images
 
 Author
 ======
