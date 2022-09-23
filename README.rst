@@ -19,7 +19,7 @@ MAPPINGS-III models for starbursting regions. However,
 both pipelines produce essentially identical images for galaxies
 with low fractions of star-forming gas (fig. 2 from Rodriguez-Gomez
 et al. 2019), and the GALAXEV pipeline has the advantage of being
-substantially faster and easier to use. As a low-cost alternative
+substantially faster and more straightforward. As a low-cost alternative
 to full dust radiative transfer, the current pipeline can optionally
 include the effects of a spatially unresolved dust distribution
 according to the model of
@@ -33,7 +33,7 @@ individual stellar particles, but the basic idea is similar).
 So, for a given set of broadband filters, we can calculate the magnitude
 (in the frame of the observer) of each stellar particle and its associated
 flux. We then add the fluxes from all the stellar particles to create a final
-image (with a given pixel scale), but instead of treating the particles as
+image (for a given pixel scale), but instead of treating the particles as
 point-like, their light contribution is convolved with a kernel with a
 spatially varying smoothing scale, similar to the methodology described in
 `Torrey et al. (2015) <https://ui.adsabs.harvard.edu/abs/2015MNRAS.447.2753T>`_.
@@ -143,11 +143,13 @@ end, let us create a directory to store all the relevant data:
 
     mkdir hsc
 
-In the following sections, some shell scripts are provided as examples
-(also for the current HSC example). In general, however, the programs
-``stellar_photometrics.py`` and ``create_images.py`` can be run for any
-combination of filters, pixel scales, and redshifts, and accept various
-command-line parameters to customize the synthetic images.
+Note that HSC is simply chosen as an example for illustrative purposes.
+In general, this code supports any combination of filters, pixel
+scales, and redshifts, so it can be tailored to observations from
+any instrument or survey (however, since the modeling of dust is
+quite limited, the user should use caution at wavelengths beyond
+optical and near-infrared).
+
 
 Obtaining filter curves
 -----------------------
@@ -234,13 +236,17 @@ Running the above script (after setting the correct directories, etc.)
 creates *idealized* synthetic images for the most massive galaxies
 (Mstar > 10^12 Msun, including the intracluster light) from snapshot 78
 (z ~ 0.3) of TNG100, showing stars from neighboring galaxies as well,
-with a fixed image size of 224x224 pixels and HSC settings
-(pixel scale and filters). The resulting idealized images have units of "maggies"
-(following SDSS nomenclature), which means that the zero-point is
-exactly zero and that magnitudes can be calculated simply as
-MAG = -2.5 * log10(DATA). The output is stored in FITS files, each
+with a fixed image size of 224x224 pixels (about 172 kpc across) and adopting
+HSC settings (pixel scale and filters). The resulting idealized images have
+units of "maggies" (following SDSS nomenclature), which means that the
+zero-point is exactly zero and that magnitudes can be calculated simply
+as MAG = -2.5 * log10(DATA). The output is stored in FITS files, each
 with a main HDU object in which the different "layers" correspond
-to the filters of interest. The figure below shows RGB composite images
+to the specified filters. The header of each FITS file contains some
+useful image attributes such as the pixel scale in physical units
+(parsecs) at the assumed redshift of the source.
+
+The figure below shows RGB composite images
 (for the HSC *i,r,g* bands, respectively), generated with the example
 script ``extra/view_rgb_composites.py``, for the first nine objects
 considered in this example.
@@ -270,16 +276,19 @@ applies a moderate degree of realism to the HSC *i*-band images of the
 Briefly, the procedure in ``extra/apply_realism.py`` consists in
 (i) convolving with a PSF, (ii) applying shot (Poisson) noise, and
 (iii) adding uniform Gaussian background noise, adopting settings
-(seeing, sensitivity, zero-point, etc.) that match those of
-real HSC *i*-band images. In step (i), the PSF is assumed to be
+(seeing, sensitivity, zero-point, etc.) that match properties of
+real HSC *i*-band images. Note that this script is only provided
+as an example, so that the user can make any necessary improvements.
+For example, in step (i), the PSF is assumed to be
 a simple 2D Gaussian, which might not be accurate for some
 applications. In step (iii), instead of adding uniform
 background noise, the idealized images could be inserted into
 real HSC backgrounds, which would achieve a higher level of
 realism, but is not done here for the sake of simplicity.
-The figure below shows the results of applying steps (i), (ii),
-and (iii) to the HSC *i*-band images of the *z* ~ 0.3 objects
-from the previous section.
+
+The figure below shows the results of applying the realism steps (i),
+(ii), and (iii) described above to the HSC *i*-band images of the
+*z* ~ 0.3 objects from the previous section.
 
 .. image:: extra/hsc_realistic.png
   :alt: Realistic HSC i-band images
