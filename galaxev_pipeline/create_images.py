@@ -419,7 +419,8 @@ def create_images(object_id):
     if verbose:
         print('Calculating smoothing lengths...')
     dx = pos[:] - pos[0]
-    dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
+    dx = dx - (np.abs(dx) > 0.5 * box_size) * np.copysign(box_size, dx)
+
     hsml_ckpc_h = get_hsml(dx, num_neighbors)
 
     # Get all fluxes once and for all.
