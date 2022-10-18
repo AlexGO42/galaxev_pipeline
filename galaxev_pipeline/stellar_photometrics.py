@@ -135,13 +135,13 @@ if __name__ == '__main__':
         basedir = sys.argv[2]
         writedir = sys.argv[3]
         model_version = sys.argv[4]  # 'bc03', 'cb19'
-        model_dir = sys.argv[4]
-        use_cf00 = bool(int(sys.argv[5]))
-        snapnum = int(sys.argv[6])
-        use_z = float(sys.argv[7])
-        mock_set = sys.argv[8]  # 'hsc', etc.
+        model_dir = sys.argv[5]
+        use_cf00 = bool(int(sys.argv[6]))
+        snapnum = int(sys.argv[7])
+        use_z = float(sys.argv[8])
+        mock_set = sys.argv[9]  # 'hsc', etc.
     except:
-        print('Arguments: suite basedir writedir model_dir',
+        print('Arguments: suite basedir writedir model_version model_dir',
               'use_cf00 snapnum use_z mock_set')
         sys.exit()
 
