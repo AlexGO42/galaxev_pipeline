@@ -11,8 +11,9 @@ MOCK_SET=hsc
 # snapshots, etc., as will become clear later):
 WRITEDIR=/path/to/imagedir/${MOCK_SET}
 
-# Directory with the GALAXEV model files:
-BC03_MODEL_DIR=/path/to/bc03/Padova1994/chabrier
+# Directory with the GALAXEV model files (bc03 or cb19):
+MODEL_VERSION=bc03
+MODEL_DIR=/path/to/bc03/Padova1994/chabrier
 
 # Directory with the galaxev_pipeline code:
 CODEDIR=/path/to/galaxev_pipeline
@@ -30,5 +31,5 @@ BASEDIR=/path/to/${SIMULATION}/output
 USE_CF00=0  # 0 = no, 1 = yes
 
 python ${CODEDIR}/galaxev_pipeline/stellar_photometrics.py \
-    ${SUITE} ${BASEDIR} ${WRITEDIR} ${BC03_MODEL_DIR} \
+    ${SUITE} ${BASEDIR} ${WRITEDIR} ${MODEL_VERSION} ${MODEL_DIR} \
     ${USE_CF00} ${SNAPNUM} ${USE_Z} ${MOCK_SET}
