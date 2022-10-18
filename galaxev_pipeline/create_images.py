@@ -502,15 +502,16 @@ if __name__ == '__main__':
         num_rhalfs = float(sys.argv[12])  # on each side from the center, usually 7.5
         npixels = int(sys.argv[13])  # total # of pixels on each side, usually -1
         log_mstar_min = float(sys.argv[14])  # minimum log10(M*) of galaxies
-        use_fof = bool(int(sys.argv[15]))  # If True, load particles from FoF group
-        use_cf00 = bool(int(sys.argv[16]))  # If True, apply Charlot & Fall (2000)
-        nprocesses = int(sys.argv[17])  # Use MPI if nprocesses > 1
-        verbose = bool(int(sys.argv[18]))
+        filename_ids_custom = sys.argv[15]  # optional (if log_mstar_min == -1)
+        use_fof = bool(int(sys.argv[16]))  # If True, load particles from FoF group
+        use_cf00 = bool(int(sys.argv[17]))  # If True, apply Charlot & Fall (2000)
+        nprocesses = int(sys.argv[18])  # Use MPI if nprocesses > 1
+        verbose = bool(int(sys.argv[19]))
     except:
         print('Arguments: suite simulation basedir amdir ' + 
               'writedir codedir snapnum use_z arcsec_per_pixel ' +
               'proj_kind num_neighbors num_rhalfs npixels log_mstar_min ' +
-              'use_cf00 use_fof nprocesses verbose')
+              'filename_ids_custom use_cf00 use_fof nprocesses verbose')
         sys.exit()
 
     # Check input
@@ -608,16 +609,16 @@ if __name__ == '__main__':
         # Get list of relevant Subfind IDs
         filename_ids = '%s/subfind_ids.txt' % (synthdir,)
         if log_mstar_min == -1:
-            subfind_ids = np.loadtxt(filename_ids, dtype=np.int32)
+            subfind_ids = np.loadtxt(filename_ids_custom, dtype=np.int32)
         else:
             log_mstar_max = 13.0  # hardcoded since we don't expect larger M*
             mstar_min = 10.0**log_mstar_min / 1e10 * h  # 10^10 Msun/h
             mstar_max = 10.0**log_mstar_max / 1e10 * h  # 10^10 Msun/h
             subfind_ids = get_subfind_ids(snapnum, mstar_min, mstar_max)
-            # Write Subfind IDs to text file
-            with open(filename_ids, 'w') as f_ids:
-                for sub_index in subfind_ids:
-                    f_ids.write('%d\n' % (sub_index,))
+        # Write Subfind IDs to text file
+        with open(filename_ids, 'w') as f_ids:
+            for sub_index in subfind_ids:
+                f_ids.write('%d\n' % (sub_index,))
 
         # Get associated FoF group IDs
         fof_ids = sub_gr_nr[subfind_ids]

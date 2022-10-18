@@ -40,11 +40,10 @@ NPIXELS=224  # only set if NUM_RHALFS=-1
 # In cosmological simulations, one is often interested in generating
 # images for all galaxies above a given stellar mass, which can be
 # specified with the parameter LOG_MSTAR_MIN. Alternatively, if
-# LOG_MSTAR_MIN=-1, a custom set of Subfind IDs can be specified in the
-# text file subfind_ids.txt, although the file has to be placed in the folder
-# where the synthetic images will be created, which in this example is
-# ${WRITEDIR}/IllustrisTNG/L35n2160TNG/snapnum_096/galaxev/xy/subfind_ids.txt
+# LOG_MSTAR_MIN=-1, a custom set of Subfind IDs can be given in a
+# custom text file specified by the user.
 LOG_MSTAR_MIN=12.0  # if -1, read Subfind IDs from file
+FILENAME_IDS_CUSTOM=/path/to/subfind_ids.txt  # optional
 
 # The following parameter specifies the projection. The possible values are
 # 'xy', 'yz', 'zx', 'faceon', 'edgeon', and 'planar':
@@ -76,4 +75,5 @@ ${EXEC} ${CODEDIR}/galaxev_pipeline/create_images.py \
     ${SUITE} ${SIMULATION} ${BASEDIR} ${AMDIR} \
     ${WRITEDIR} ${CODEDIR}/galaxev_pipeline ${SNAPNUM} ${USE_Z} \
     ${ARCSEC_PER_PIXEL} ${PROJ_KIND} ${NGB} ${NUM_RHALFS} ${NPIXELS} \
-    ${LOG_MSTAR_MIN} ${USE_FOF} ${USE_CF00} ${NPROCESSES} ${VERBOSE}
+    ${LOG_MSTAR_MIN} ${FILENAME_IDS_CUSTOM} ${USE_FOF} ${USE_CF00} \
+    ${NPROCESSES} ${VERBOSE}
