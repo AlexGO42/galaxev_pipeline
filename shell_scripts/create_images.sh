@@ -42,8 +42,8 @@ NPIXELS=224  # only set if NUM_RHALFS=-1
 # specified with the parameter LOG_MSTAR_MIN. Alternatively, if
 # LOG_MSTAR_MIN=-1, a custom set of Subfind IDs can be given in a
 # custom text file specified by the user.
-LOG_MSTAR_MIN=12.0  # if -1, read Subfind IDs from file
-FILENAME_IDS_CUSTOM=/path/to/subfind_ids.txt  # optional
+LOG_MSTAR_MIN=12.0  # if -1, read Subfind IDs from file below
+FILENAME_IDS_CUSTOM=subfind_ids.txt  # only used if LOG_MSTAR_MIN=-1
 
 # The following parameter specifies the projection. The possible values are
 # 'xy', 'yz', 'zx', 'faceon', 'edgeon', and 'planar':
