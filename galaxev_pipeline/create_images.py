@@ -309,7 +309,7 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
 
     # Periodic boundary conditions (center at most bound stellar particle)
     dx = pos[:] - sub_pos[subfind_id]
-    dx = dx - (np.abs(dx) > 0.5*box_size) * np.copysign(box_size, dx - 0.5*box_size)
+    dx = dx - (np.abs(dx) > 0.5 * box_size) * np.copysign(box_size, dx)
 
     # Normalize by rhalf
     dx = dx / sub_rhalf[subfind_id]
