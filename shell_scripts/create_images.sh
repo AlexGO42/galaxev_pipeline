@@ -29,28 +29,36 @@ AMDIR=${BASEDIR}  # dummy value
 # Pixel scale of the instrument or observational data of interest:
 ARCSEC_PER_PIXEL=0.168  # https://hsc.mtk.nao.ac.jp/ssp/survey
 
-# The field of view can be given either as the number of stellar half-mass
-# radii (rhalf) in each direction from the center of the image (e.g.
-# NUM_RHALFS=7.5 for a total of 15 rhalfs across) or as the *total*
-# number of pixels on each side of the image. The user should only specify
-# one of these parameters (and set the other one to -1):
-NUM_RHALFS=-1  # only set if NPIXELS=-1
-NPIXELS=224  # only set if NUM_RHALFS=-1
-
-# In cosmological simulations, one is often interested in generating
-# images for all galaxies above a given stellar mass, which can be
-# specified with the parameter LOG_MSTAR_MIN. Alternatively, if
-# LOG_MSTAR_MIN=-1, a custom set of Subfind IDs can be given in a
-# custom text file specified by the user.
-LOG_MSTAR_MIN=12.0  # if -1, read Subfind IDs from file below
-FILENAME_IDS_CUSTOM=subfind_ids.txt  # only used if LOG_MSTAR_MIN=-1
-
 # The following parameter specifies the projection. The possible values are
 # 'xy', 'yz', 'zx', 'faceon', 'edgeon', and 'planar':
 PROJ_KIND=xy
 
 # Number of neighbors that determines the adaptive smoothing scale:
 NGB=32
+
+# The field of view can be given as the number of stellar half-mass
+# radii (rhalf) in each direction from the center of the image (e.g.
+# NUM_RHALFS=7.5 for a total of 15 rhalfs across), as a multiple of the
+# halo radius R200 (measured from the halo center), or as the *total*
+# number of pixels on each side of the image. The user should only specify
+# *one* of the following parameters (and set the others to -1):
+NUM_RHALFS=-1
+NUM_R200=-1
+NPIXELS=224
+
+# In cosmological simulations, one is often interested in generating
+# images for all galaxies above a given stellar or halo mass, which can be
+# specified with the parameters LOG_MSTAR_MIN and/or LOG_M200_MIN.
+# Alternatively, if LOG_MSTAR_MIN=-1 and LOG_M200_MIN=-1, a custom set of
+# Subfind IDs can be given in a custom text file specified by the user.
+LOG_MSTAR_MIN=12.0
+LOG_M200_MIN=-1
+FILENAME_IDS_CUSTOM=subfind_ids.txt  # only used if the previous two are -1
+
+# If the following is True (i.e. not 0), only create images for central
+# galaxies (although satellite galaxies are also shown if the USE_FOF option
+# described below is active):
+CENTRALS_ONLY=0  # 0 = no, 1 = yes
 
 # Whether to also show other galaxies (plus diffuse light) from the same
 # parent halo (friends-of-friends group):
@@ -74,6 +82,6 @@ fi
 ${EXEC} ${CODEDIR}/galaxev_pipeline/create_images.py \
     ${SUITE} ${SIMULATION} ${BASEDIR} ${AMDIR} \
     ${WRITEDIR} ${CODEDIR}/galaxev_pipeline ${SNAPNUM} ${USE_Z} \
-    ${ARCSEC_PER_PIXEL} ${PROJ_KIND} ${NGB} ${NUM_RHALFS} ${NPIXELS} \
-    ${LOG_MSTAR_MIN} ${FILENAME_IDS_CUSTOM} ${USE_FOF} ${USE_CF00} \
-    ${NPROCESSES} ${VERBOSE}
+    ${ARCSEC_PER_PIXEL} ${PROJ_KIND} ${NGB} ${NUM_RHALFS} ${NUM_R200} \
+    ${NPIXELS} ${LOG_MSTAR_MIN} ${LOG_M200_MIN} ${FILENAME_IDS_CUSTOM} \
+    ${CENTRALS_ONLY} ${USE_FOF} ${USE_CF00} ${NPROCESSES} ${VERBOSE}

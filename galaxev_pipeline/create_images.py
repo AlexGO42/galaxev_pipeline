@@ -250,46 +250,71 @@ def adaptive_smoothing(x, y, hsml, xcenters, ycenters, num_rhalfs, codedir,
     return H
 
 
-def get_subfind_ids(snapnum, mstar_min, mstar_max):
+def get_subfind_ids(snapnum):
     """
-    Return the Subfind IDs of galaxies with stellar masses in the
-    interval [mstar_min, mstar_max).
+    Return the Subfind IDs of galaxies with stellar and/or halo masses
+    above some specified minimum value(s).
     """
-    # Load subhalo info
-    print('Loading stellar masses...')
-    start = time.time()
-    mstar = il.groupcat.loadSubhalos(
-        basedir, snapnum, fields=['SubhaloMassType'])[:, parttype_stars]
-    print('Time: %g s.' % (time.time() - start))
-    
-    locs_valid = (mstar >= mstar_min) & (mstar < mstar_max)
-    subfind_ids = np.flatnonzero(locs_valid)
+    nsubs = len(sub_gr_nr)
+    locs_valid = np.zeros(nsubs, dtype=np.bool8)
 
+    if log_mstar_min > 0:
+        print('Loading galaxy stellar masses...')
+        start = time.time()
+        mstar = il.groupcat.loadSubhalos(
+            basedir, snapnum, fields=['SubhaloMassType'])[:, parttype_stars]
+        print('Time: %g s.' % (time.time() - start))
+        mstar_min = 10.0**log_mstar_min / 1e10 * h  # 10^10 Msun/h
+        locs_valid &= mstar >= mstar_min
+
+    if log_m200_min > 0:
+        print('Loading halo masses...')
+        start = time.time()
+        group_m200 = il.groupcat.loadHalos(
+            basedir, snapnum, fields=['Group_M_Crit200'])
+        print('Time: %g s.' % (time.time() - start))
+        m200_min = 10.0**log_m200_min / 1e10 * h  # 10^10 Msun/h
+        locs_valid &= group_m200[sub_gr_nr] >= m200_min
+
+    if centrals_only:
+        print('Selecting centrals only...')
+        start = time.time()
+        group_first_sub = il.groupcat.loadHalos(
+            basedir, snapnum, fields=['GroupFirstSub'])
+        print('Time: %g s.' % (time.time() - start))
+        is_central = group_first_sub[sub_gr_nr] == np.arange(nsubs, dtype=np.uint32)
+        locs_valid &= is_central
+
+    subfind_ids = np.flatnonzero(locs_valid)
     return np.array(subfind_ids, dtype=np.int32)
 
 
 def get_num_rhalfs_npixels(subfind_id):
     """
     Helper function to get the current values of num_rhalfs and npixels,
-    considering that one and only one of the two is defined.
+    considering that one and only one of num_rhalfs, num_r200, and npixels
+    is defined.
 
     Note that npixels refers to the total number of pixels per side, while
-    num_rhalfs is measured from the center of the image (i.e., an image
-    with num_rhalfs = 7.5 would roughly measure 15.0 * rhalf on each side).
+    num_rhalfs and num_r200 are measured from the center of the image (i.e.,
+    an image with num_rhalfs = 7.5 would roughly measure 15.0 * rhalf on
+    each side).
     """
-    if num_rhalfs > 0:
-        assert npixels <= 0
-        cur_npixels = int(np.ceil(2.0 * num_rhalfs * sub_rhalf[subfind_id] /
-                                  ckpc_h_per_pixel))
-    elif npixels > 0:
-        assert num_rhalfs <= 0
+    if npixels > 0:
         cur_npixels = npixels
+    elif num_rhalfs > 0:
+        cur_npixels = int(np.ceil(
+            2.0 * num_rhalfs * sub_rhalf[subfind_id] / ckpc_h_per_pixel))
+    elif num_r200 > 0:
+        cur_npixels = int(np.ceil(
+            2.0 * num_r200 * group_r200[sub_gr_nr[subfind_id]] / ckpc_h_per_pixel))
     else:
-        raise Exception("One (and only one) of num_rhalfs and npixels " +
-                        "should be specified (the other should be -1).")
+        raise Exception(
+            "One (and only one) of num_rhalfs, num_r200, and npixels " +
+            "should be specified (the others should be -1).")
 
-    # In either case, we "update" num_rhalfs so that 2.0 * num_rhalfs
-    # corresponds exactly to an integer number of pixels:
+    # In any case, we "update" num_rhalfs so that 2.0 * num_rhalfs corresponds
+    # exactly to an integer number of pixels:
     assert sub_rhalf[subfind_id] > 0
     cur_num_rhalfs = cur_npixels * ckpc_h_per_pixel / (2.0 * sub_rhalf[subfind_id])
 
@@ -499,25 +524,35 @@ if __name__ == '__main__':
         arcsec_per_pixel = float(sys.argv[9])
         proj_kind = sys.argv[10]  # 'xy', 'yz', 'zx', 'planar', 'faceon', 'edgeon'
         num_neighbors = int(sys.argv[11])  # for adaptive smoothing, usually 32
-        num_rhalfs = float(sys.argv[12])  # on each side from the center, usually 7.5
-        npixels = int(sys.argv[13])  # total # of pixels on each side, usually -1
-        log_mstar_min = float(sys.argv[14])  # minimum log10(M*) of galaxies
-        filename_ids_custom = sys.argv[15]  # optional (if log_mstar_min == -1)
-        use_fof = bool(int(sys.argv[16]))  # If True, load particles from FoF group
-        use_cf00 = bool(int(sys.argv[17]))  # If True, apply Charlot & Fall (2000)
-        nprocesses = int(sys.argv[18])  # Use MPI if nprocesses > 1
-        verbose = bool(int(sys.argv[19]))
+        num_rhalfs = float(sys.argv[12])  # measured from center, usually 7.5 (or -1)
+        num_r200 = float(sys.argv[13])  # usually 1.0 for clusters (-1 if not used)
+        npixels = int(sys.argv[14])  # total # of pixels on each side (-1 if not used)
+        log_mstar_min = float(sys.argv[15])  # minimum log10(M*) (-1 if not used)
+        log_m200_min = float(sys.argv[16])  # minimum log10(M200) (-1 if not used)
+        filename_ids_custom = sys.argv[17]  # optional (-1 if not used)
+        centrals_only = bool(int(sys.argv[18]))
+        use_fof = bool(int(sys.argv[19]))  # If True, load particles from FoF group
+        use_cf00 = bool(int(sys.argv[20]))  # If True, apply Charlot & Fall (2000)
+        nprocesses = int(sys.argv[21])  # Use MPI if nprocesses > 1
+        verbose = bool(int(sys.argv[22]))
     except:
         print('Arguments: suite simulation basedir amdir ' + 
               'writedir codedir snapnum use_z arcsec_per_pixel ' +
-              'proj_kind num_neighbors num_rhalfs npixels log_mstar_min ' +
-              'filename_ids_custom use_cf00 use_fof nprocesses verbose')
+              'proj_kind num_neighbors num_rhalfs num_r200 npixels ' +
+              'log_mstar_min log_m200_min filename_ids_custom ' +
+              'centrals_only use_fof use_cf00 nprocesses verbose')
         sys.exit()
 
     # Check input
-    if num_rhalfs > 0 and npixels > 0:
-        raise Exception('Only one of num_rhalfs and npixels should be defined ' +
-                        '(the other should be -1).')
+    if (num_rhalfs > 0) + (num_r200 > 0) + (npixels > 0) != 1:
+        raise Exception(
+            'One (and only one) of num_rhalfs, num_r200, and npixels ' +
+            'should be defined (the others should be -1).')
+
+    # Disable the option of creating images for satellite galaxies when
+    # the field of view is determined by the halo radius (R200).
+    if num_r200 > 0 and not centrals_only:
+        raise Exception('Defining num_r200 only makes sense for centrals.')
 
     # Check if we require the angular momentum vectors
     require_jstar = proj_kind in ['planar', 'faceon', 'edgeon']
@@ -591,9 +626,9 @@ if __name__ == '__main__':
             print('arcsec_per_pixel = %g' % (arcsec_per_pixel,))
             print('ckpc_h_per_pixel = %g' % (ckpc_h_per_pixel,))
 
-        # Load subhalo info
+        # Load halo and subhalo info
         start = time.time()
-        print('Loading subhalo info...')
+        print('Loading halo and subhalo info...')
         sub_rhalf = il.groupcat.loadSubhalos(
             basedir, snapnum, fields=['SubhaloHalfmassRadType'])[:, parttype_stars]
         sub_pos = il.groupcat.loadSubhalos(basedir, snapnum, fields=['SubhaloPos'])
@@ -604,17 +639,20 @@ if __name__ == '__main__':
                 jstar_direction = f['jstar_direction'][:]
         else:
             jstar_direction = None
+        # Load halo radius (R200) if necessary
+        if num_r200 > 0:
+            group_r200 = il.groupcat.loadHalos(
+                basedir, snapnum, fields=['Group_R_Crit200'])
+        else:
+            group_r200 = None
         print('Time: %f s.' % (time.time() - start))
 
         # Get list of relevant Subfind IDs
         filename_ids = '%s/subfind_ids.txt' % (synthdir,)
-        if log_mstar_min == -1:
+        if log_mstar_min == -1 and log_m200_min == -1:
             subfind_ids = np.loadtxt(filename_ids_custom, dtype=np.int32)
         else:
-            log_mstar_max = 13.0  # hardcoded since we don't expect larger M*
-            mstar_min = 10.0**log_mstar_min / 1e10 * h  # 10^10 Msun/h
-            mstar_max = 10.0**log_mstar_max / 1e10 * h  # 10^10 Msun/h
-            subfind_ids = get_subfind_ids(snapnum, mstar_min, mstar_max)
+            subfind_ids = get_subfind_ids(snapnum)
         # Write Subfind IDs to text file
         with open(filename_ids, 'w') as f_ids:
             for sub_index in subfind_ids:
@@ -627,6 +665,7 @@ if __name__ == '__main__':
         sub_rhalf = None
         sub_pos = None
         jstar_direction = None
+        group_r200 = None
         subfind_ids = None
         fof_ids = None
 
@@ -636,6 +675,7 @@ if __name__ == '__main__':
         sub_rhalf = comm.bcast(sub_rhalf, root=0)
         sub_pos = comm.bcast(sub_pos, root=0)
         jstar_direction = comm.bcast(jstar_direction, root=0)
+        group_r200 = comm.bcast(group_r200, root=0)
         subfind_ids = comm.bcast(subfind_ids, root=0)
         fof_ids = comm.bcast(fof_ids, root=0)
 
