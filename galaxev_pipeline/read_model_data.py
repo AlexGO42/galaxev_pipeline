@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 def read_bc03(bc03_model_dir, high_resolution=False):
     """
