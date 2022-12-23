@@ -256,7 +256,7 @@ def get_subfind_ids(snapnum):
     above some specified minimum value(s).
     """
     nsubs = len(sub_gr_nr)
-    locs_valid = np.zeros(nsubs, dtype=np.bool8)
+    locs_valid = np.ones(nsubs, dtype=np.bool8)
 
     if log_mstar_min > 0:
         print('Loading galaxy stellar masses...')
