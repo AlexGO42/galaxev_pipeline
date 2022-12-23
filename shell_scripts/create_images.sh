@@ -55,9 +55,9 @@ LOG_MSTAR_MIN=12.0
 LOG_M200_MIN=-1
 FILENAME_IDS_CUSTOM=subfind_ids.txt  # only used if the previous two are -1
 
-# If the following is True (i.e. not 0), only create images for central
-# galaxies (although satellite galaxies are also shown if the USE_FOF option
-# described below is active):
+# If the following is True (i.e., 1), only create images for central galaxies
+# (although satellite galaxies from the same halo that happen to be in the
+# field of view are also shown if the USE_FOF option is active):
 CENTRALS_ONLY=0  # 0 = no, 1 = yes
 
 # Whether to also show other galaxies (plus diffuse light) from the same
