@@ -664,6 +664,7 @@ if __name__ == '__main__':
     else:
         sub_rhalf = None
         sub_pos = None
+        sub_gr_nr = None
         jstar_direction = None
         group_r200 = None
         subfind_ids = None
@@ -674,6 +675,7 @@ if __name__ == '__main__':
         comm.Barrier()
         sub_rhalf = comm.bcast(sub_rhalf, root=0)
         sub_pos = comm.bcast(sub_pos, root=0)
+        sub_gr_nr = comm.bcast(sub_gr_nr, root=0)
         jstar_direction = comm.bcast(jstar_direction, root=0)
         group_r200 = comm.bcast(group_r200, root=0)
         subfind_ids = comm.bcast(subfind_ids, root=0)
