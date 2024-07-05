@@ -5,17 +5,21 @@ broadband filters based on models from GALAXEV.
 
 # Author: Vicente Rodriguez-Gomez <vrodgom.astro@gmail.com>
 # Licensed under a 3-Clause BSD License.
-import numpy as np
-import h5py
-import sys
 import os
+import sys
 import time
-import scipy.interpolate as ip
+import h5py
+
+import numpy as np
+import astropy.units as u
 import scipy.integrate as it
+import scipy.interpolate as ip
 import astropy.constants as const
-from astropy.cosmology import FlatLambdaCDM
 
 import illustris_python as il
+
+from astropy.cosmology import LambdaCDM
+
 from read_model_data import read_bc03, read_cb19
 
 
@@ -60,30 +64,31 @@ def calculate_magnitudes(
     num_metallicities = len(metallicities)
 
     # Get luminosity distance (if redshift is too small, use 10 Mpc)
-    Mpc = 1e6 * const.pc.value  # 1 Mpc in meters
     if use_z < 2.5e-3:
         use_z = 0.0
-        d_L = 10.0 * Mpc  # meters
+        d_L = (10.0 * u.Mpc).to(u.m)  # meters
         print(
             "WARNING: Observation redshift is too small.",
             "Assuming that source is at 10 Mpc...",
         )
     else:
-        d_L = acosmo.luminosity_distance(use_z).value * Mpc  # meters
+        d_L = acosmo.luminosity_distance(use_z).to(u.m)
 
     # Apply Charlot & Fall (2000) model
     if use_cf00:
         datacube = apply_cf00(datacube, stellar_ages, wavelengths)
 
     # Shift rest-frame wavelengths to observer-frame; convert to meters
-    wavelengths *= (1.0 + use_z) * 1e-10  # m
+    wavelengths = (wavelengths * (1.0 + use_z)).to(u.m)
 
     # AB magnitude system in wavelength units
-    FAB_nu = 3631.0 * 1e-26  # W/m^2/Hz
-    FAB_lambda = FAB_nu * const.c.value / wavelengths**2  # W/m^2/m
+    FAB_nu = 3631.0 * u.Jy
+    FAB_lambda = FAB_nu.to(
+        u.W / u.m**2 / u.m, equivalencies=u.spectral_density(wav=wavelengths)
+    )
 
     # Convert rest-frame spectra from Lsun/angstrom to W/m
-    datacube *= const.L_sun.value * 1e10
+    datacube = datacube.to(u.W / u.m)
 
     # Convert luminosity to flux in observer-frame.
     # Note that the (1+z) factor comes from the stretching
@@ -93,6 +98,12 @@ def calculate_magnitudes(
     # Read filter names
     with open(filename_filters, "r") as f:
         filter_names = list(map(lambda s: s.strip("\n"), f.readlines()))
+
+    # Drop units (scipy's splines do not yet support astropy units)
+    datacube = datacube.value
+    wavelengths = wavelengths.value
+    stellar_ages = stellar_ages.value
+    FAB_lambda = FAB_lambda.value
 
     # Open HDF5 for writing
     f = h5py.File(filename_out, "w")
@@ -107,9 +118,9 @@ def calculate_magnitudes(
         )
 
         # Read filter response function
-        filter_data = np.loadtxt("%s/%s" % (filter_dir, filter_name))
+        filter_data = np.loadtxt(os.path.join(filter_dir, filter_name))
         filter_lambda, filter_response = filter_data.T
-        filter_lambda *= 1e-10  # to meters
+        filter_lambda *= 1e-10  # from AA to meters
         filter_interp = ip.interp1d(
             filter_lambda, filter_response, bounds_error=False, fill_value=0.0
         )
@@ -136,9 +147,9 @@ def calculate_magnitudes(
 
         # Also store the assumed redshift and the luminosity distance:
         dset.attrs["use_z"] = use_z
-        dset.attrs["d_L"] = d_L
+        dset.attrs["d_L"] = d_L.value
 
-        print("Finished for filter %s." % (filter_name))
+        print(f"Finished for filter {filter_name}.")
 
     f.close()
 
@@ -166,18 +177,16 @@ if __name__ == "__main__":
     high_resolution = False
 
     # Some additional directories and filenames
-    suitedir = "%s/%s" % (writedir, suite)
-    filter_dir = "%s/filter_curves" % (writedir,)
-    filename_filters = "%s/filters.txt" % (writedir,)
+    suitedir = os.path.join(writedir, suite)
+    filter_dir = os.path.join(writedir, "filter_curves")
+    filename_filters = os.path.join(writedir, "filters.txt")
     if use_cf00:
-        filename_out = "%s/stellar_photometrics_cf00_%03d.hdf5" % (
-            suitedir,
-            snapnum,
+        filename_out = os.path.join(
+            suitedir, f"stellar_photometrics_cf00_{snapnum:03d}.hdf5"
         )
     else:
-        filename_out = "%s/stellar_photometrics_%03d.hdf5" % (
-            suitedir,
-            snapnum,
+        filename_out = os.path.join(
+            suitedir, f"stellar_photometrics_{snapnum:03d}.hdf5"
         )
 
     # Make sure that write directories exist
@@ -185,10 +194,32 @@ if __name__ == "__main__":
         os.makedirs(suitedir)
 
     # Cosmology
-    if suite == "IllustrisTNG":  # Planck 2015 XIII (Table 4, last column)
-        acosmo = FlatLambdaCDM(H0=67.74, Om0=0.3089, Ob0=0.0486)
-    elif suite == "Illustris":  # WMAP-7, Komatsu et al. 2011 (Table 1, v2)
-        acosmo = FlatLambdaCDM(H0=70.4, Om0=0.2726, Ob0=0.0456)
+    if suite == "IllustrisTNG":
+        acosmo = LambdaCDM(
+            name=suite,
+            H0=67.74,
+            Om0=0.3089,
+            Ob0=0.0486,
+            Ode0=0.6911,
+            meta={
+                "n_s": 0.9667,
+                "sigma8": 0.8159,
+                "reference": "Planck 2015 XIII (Table 4, last column)",
+            },
+        )
+    elif suite == "Illustris":
+        acosmo = LambdaCDM(
+            name=suite,
+            H0=70.4,
+            Om0=0.2726,
+            Ob0=0.0456,
+            Ode0=0.7274,
+            meta={
+                "n_s": 0.963,
+                "sigma8": 0.809,
+                "reference": "WMAP-7, Komatsu et al. 2011 (Table 1, v2)",
+            },
+        )
     else:
         raise Exception("Cosmology not specified.")
 
@@ -205,9 +236,7 @@ if __name__ == "__main__":
             suite == "IllustrisTNG" and snapnum == 99
         ):
             use_z = 0.0994018026302  # corresponds to snapnum_last - 8
-            print(
-                "WARNING: use_z is too small. Setting use_z = %g." % (use_z,)
-            )
+            print(f"WARNING: use_z is too small. Setting {use_z = :g}.")
 
     # Read model data
     if model_version == "bc03":
@@ -216,7 +245,7 @@ if __name__ == "__main__":
         )
     elif model_version == "cb19":
         datacube, metallicities, stellar_ages, wavelengths = read_cb19(
-            model_dir, high_resolution
+            model_dir
         )
     else:
         raise NotImplementedError(model_version)
