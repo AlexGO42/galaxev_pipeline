@@ -6,18 +6,22 @@ following the methodology of Rodriguez-Gomez et al. (2019).
 
 # Author: Vicente Rodriguez-Gomez <vrodgom.astro@gmail.com>
 # Licensed under a 3-Clause BSD License.
-import numpy as np
-import h5py
 import os
 import sys
-import scipy.interpolate as ip
-from scipy.spatial import cKDTree
-from astropy.io import fits
-from astropy.cosmology import FlatLambdaCDM
 import time
+import h5py
 import ctypes
 
+import numpy as np
+import scipy.interpolate as ip
+
 import illustris_python as il
+
+from scipy.spatial import cKDTree
+
+from astropy.io import fits
+from astropy.cosmology import LambdaCDM
+
 
 KILL_TAG = 1
 WORK_TAG = 0
@@ -35,23 +39,21 @@ def get_fluxes(
     and can be converted to magnitudes as MAG = -2.5 * log10(DATA).
     """
     if use_cf00:
-        filename_bc03 = "%s/stellar_photometrics_cf00_%03d.hdf5" % (
-            suitedir,
-            snapnum,
+        filename_ssp = os.path.join(
+            suitedir, f"stellar_photometrics_cf00_{snapnum:03d}.hdf5"
         )
     else:
-        filename_bc03 = "%s/stellar_photometrics_%03d.hdf5" % (
-            suitedir,
-            snapnum,
+        filename_ssp = os.path.join(
+            suitedir, f"stellar_photometrics_{snapnum:03d}.hdf5"
         )
 
-    with h5py.File(filename_bc03, "r") as f_bc03:
-        bc03_metallicities = f_bc03["metallicities"][:]
-        bc03_stellar_ages = f_bc03["stellar_ages"][:]
-        bc03_magnitudes = f_bc03[filter_name][:]
+    with h5py.File(filename_ssp, "r") as f_ssp:
+        ssp_metallicities = f_ssp["metallicities"][:]
+        ssp_stellar_ages = f_ssp["stellar_ages"][:]
+        ssp_magnitudes = f_ssp[filter_name][:]
 
     spline = ip.RectBivariateSpline(
-        bc03_metallicities, bc03_stellar_ages, bc03_magnitudes, kx=1, ky=1, s=0
+        ssp_metallicities, ssp_stellar_ages, ssp_magnitudes, kx=1, ky=1, s=0
     )
 
     # BC03 magnitudes are normalized to a mass of 1 Msun:
@@ -274,7 +276,7 @@ def get_subfind_ids(snapnum):
         mstar = il.groupcat.loadSubhalos(
             basedir, snapnum, fields=["SubhaloMassType"]
         )[:, parttype_stars]
-        print("Time: %g s." % (time.time() - start))
+        print(f"Time: {time.time() - start:g} s.")
         mstar_min = 10.0**log_mstar_min / 1e10 * h  # 10^10 Msun/h
         locs_valid &= mstar >= mstar_min
 
@@ -284,7 +286,7 @@ def get_subfind_ids(snapnum):
         group_m200 = il.groupcat.loadHalos(
             basedir, snapnum, fields=["Group_M_Crit200"]
         )
-        print("Time: %g s." % (time.time() - start))
+        print(f"Time: {time.time() - start:g} s.")
         m200_min = 10.0**log_m200_min / 1e10 * h  # 10^10 Msun/h
         locs_valid &= group_m200[sub_gr_nr] >= m200_min
 
@@ -294,7 +296,7 @@ def get_subfind_ids(snapnum):
         group_first_sub = il.groupcat.loadHalos(
             basedir, snapnum, fields=["GroupFirstSub"]
         )
-        print("Time: %g s." % (time.time() - start))
+        print(f"Time: {time.time() - start:g} s.")
         is_central = group_first_sub[sub_gr_nr] == np.arange(
             nsubs, dtype=np.uint32
         )
@@ -317,21 +319,16 @@ def get_num_rhalfs_npixels(subfind_id):
     """
     if npixels > 0:
         cur_npixels = npixels
+        half_fov_ckpc_h = 0.5 * cur_npixels * ckpc_h_per_pixel
     elif num_rhalfs > 0:
-        cur_npixels = int(
-            np.ceil(
-                2.0 * num_rhalfs * sub_rhalf[subfind_id] / ckpc_h_per_pixel
-            )
+        half_fov_ckpc_h = max(
+            num_rhalfs * sub_rhalf[subfind_id],
+            num_rhalfs_tot * sub_rhalf_tot[subfind_id],
         )
+        cur_npixels = int(np.ceil(2.0 * half_fov_ckpc_h / ckpc_h_per_pixel))
     elif num_r200 > 0:
-        cur_npixels = int(
-            np.ceil(
-                2.0
-                * num_r200
-                * group_r200[sub_gr_nr[subfind_id]]
-                / ckpc_h_per_pixel
-            )
-        )
+        half_fov_ckpc_h = num_r200 * group_r200[sub_gr_nr[subfind_id]]
+        cur_npixels = int(np.ceil(2.0 * half_fov_ckpc_h / ckpc_h_per_pixel))
     else:
         raise Exception(
             "One (and only one) of num_rhalfs, num_r200, and npixels "
@@ -345,7 +342,7 @@ def get_num_rhalfs_npixels(subfind_id):
         cur_npixels * ckpc_h_per_pixel / (2.0 * sub_rhalf[subfind_id])
     )
 
-    return cur_num_rhalfs, cur_npixels
+    return cur_num_rhalfs, cur_npixels, half_fov_ckpc_h
 
 
 def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
@@ -356,8 +353,8 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     """
     cur_num_rhalfs, cur_npixels = get_num_rhalfs_npixels(subfind_id)
     if verbose:
-        print("cur_num_rhalfs = %.1f" % (cur_num_rhalfs,))
-        print("cur_npixels = %d" % (cur_npixels,))
+        print(f"{2 * cur_num_rhalfs = :.1f}")
+        print(f"{cur_npixels = :d}")
 
     # Periodic boundary conditions (center at most bound stellar particle)
     dx = pos[:] - sub_pos[subfind_id]
@@ -404,27 +401,41 @@ def create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes):
     # Create some header attributes
     header = fits.Header()
     pc_per_pixel = ckpc_h_per_pixel * 1000.0 / h / (1.0 + z)  # physical pc
+    header["NAXIS"] = 3
+    header["NAXIS1"] = cur_npixels
+    header["NAXIS2"] = cur_npixels
+    header["NAXIS3"] = num_filters
     header["BUNIT"] = ("maggies/pixel", "Unit of the array values")
+    header["CRPIX1"] = (
+        (cur_npixels + 1) // 2,
+        "X-axis coordinate system reference pixel",
+    )
+    header["CRVAL1"] = (0.0, "Coordinate value at X-axis reference pixel")
     header["CDELT1"] = (pc_per_pixel, "Coordinate increment along X-axis")
-    header["CTYPE1"] = ("pc", "Physical units of the X-axis increment")
+    header["CUNIT1"] = ("pc", "Physical units of the X-axis increment")
+    header["CRPIX2"] = (
+        (cur_npixels + 1) // 2,
+        "Y-axis coordinate system reference pixel",
+    )
+    header["CRVAL2"] = (0.0, "Coordinate value at Y-axis reference pixel")
     header["CDELT2"] = (pc_per_pixel, "Coordinate increment along Y-axis")
-    header["CTYPE2"] = ("pc", "Physical units of the Y-axis increment")
+    header["CUNIT2"] = ("pc", "Physical units of the Y-axis increment")
     header["PIXSCALE"] = (arcsec_per_pixel, "Pixel size in arcsec")
     header["USE_Z"] = (use_z, "Observed redshift of the source")
     for k in range(num_filters):
-        header["FILTER%d" % (k,)] = (
+        header[f"FILTER{k:d}"] = (
             filter_names[k],
-            "Broadband filter index = %d" % (k,),
+            f"Broadband filter index = {k:d}",
         )
 
     # Write to FITS file
     hdu = fits.PrimaryHDU(data=image, header=header)
     hdulist = fits.HDUList([hdu])
-    hdulist.writeto("%s/broadband_%d.fits" % (datadir, subfind_id))
+    hdulist.writeto(os.path.join(datadir, f"broadband_{subfind_id:d}.fits"))
     hdulist.close()
 
     if verbose:
-        print("Finished for subhalo %d.\n" % (subfind_id,))
+        print(f"Finished for subhalo {subfind_id:d}.\n")
 
 
 def create_images(object_id):
@@ -504,7 +515,7 @@ def create_images(object_id):
     for subfind_id in fof_subfind_ids:
         create_image_single_sub(subfind_id, pos, hsml_ckpc_h, fluxes)
 
-    print("Finished for object %d.\n" % (object_id,))
+    print(f"Finished for object {object_id:d}.\n")
 
 
 def master():
@@ -569,35 +580,20 @@ if __name__ == "__main__":
         snapnum = int(sys.argv[7])
         use_z = float(sys.argv[8])  # if -1, use intrinsic snapshot redshift
         arcsec_per_pixel = float(sys.argv[9])
-        proj_kind = sys.argv[
-            10
-        ]  # 'xy', 'yz', 'zx', 'planar', 'faceon', 'edgeon'
+        proj_kind = sys.argv[10]  # 'xy', 'yz', etc
         num_neighbors = int(sys.argv[11])  # for adaptive smoothing, usually 32
-        num_rhalfs = float(
-            sys.argv[12]
-        )  # measured from center, usually 7.5 (or -1)
-        num_r200 = float(
-            sys.argv[13]
-        )  # usually 1.0 for clusters (-1 if not used)
-        npixels = int(
-            sys.argv[14]
-        )  # total # of pixels on each side (-1 if not used)
-        log_mstar_min = float(
-            sys.argv[15]
-        )  # minimum log10(M*) (-1 if not used)
-        log_m200_min = float(
-            sys.argv[16]
-        )  # minimum log10(M200) (-1 if not used)
-        filename_ids_custom = sys.argv[17]  # optional (-1 if not used)
-        centrals_only = bool(int(sys.argv[18]))
-        use_fof = bool(
-            int(sys.argv[19])
-        )  # If True, load particles from FoF group
-        use_cf00 = bool(
-            int(sys.argv[20])
-        )  # If True, apply Charlot & Fall (2000)
-        nprocesses = int(sys.argv[21])  # Use MPI if nprocesses > 1
-        verbose = bool(int(sys.argv[22]))
+        num_rhalfs = float(sys.argv[12])  # from center, usually 7.5 (or -1)
+        num_rhalfs_tot = float(sys.argv[13])  # 1.0 (or -1 if not used)
+        num_r200 = float(sys.argv[14])  # 1.0 for clusters (-1 if not used)
+        npixels = int(sys.argv[15])  # pixels on each side (-1 if not used)
+        log_mstar_min = float(sys.argv[16])  # min log10(M*) (-1 if not used)
+        log_m200_min = float(sys.argv[17])  # min log10(M200) (-1 if not used)
+        filename_ids_custom = sys.argv[18]  # optional (-1 if not used)
+        centrals_only = bool(int(sys.argv[19]))
+        use_fof = bool(int(sys.argv[20]))  # load particles from FoF group
+        use_cf00 = bool(int(sys.argv[21]))  # apply Charlot & Fall (2000)
+        nprocesses = int(sys.argv[22])  # Use MPI if nprocesses > 1
+        verbose = bool(int(sys.argv[23]))
     except:
         print(
             "Arguments: suite simulation basedir amdir "
@@ -624,15 +620,37 @@ if __name__ == "__main__":
     require_jstar = proj_kind in ["planar", "faceon", "edgeon"]
 
     # Some additional directories and filenames
-    suitedir = "%s/%s" % (writedir, suite)
-    simdir = "%s/%s" % (suitedir, simulation)
-    filename_filters = "%s/filters.txt" % (writedir,)
+    suitedir = os.path.join(writedir, suite)
+    simdir = os.path.join(suitedir, simulation)
+    filename_filters = os.path.join(writedir, "filters.txt")
 
     # Cosmology
-    if suite == "IllustrisTNG":  # Planck 2015 XIII (Table 4, last column)
-        acosmo = FlatLambdaCDM(H0=67.74, Om0=0.3089, Ob0=0.0486)
-    elif suite == "Illustris":  # WMAP-7, Komatsu et al. 2011 (Table 1, v2)
-        acosmo = FlatLambdaCDM(H0=70.4, Om0=0.2726, Ob0=0.0456)
+    if suite == "IllustrisTNG":
+        acosmo = LambdaCDM(
+            name=suite,
+            H0=67.74,
+            Om0=0.3089,
+            Ob0=0.0486,
+            Ode0=0.6911,
+            meta={
+                "n_s": 0.9667,
+                "sigma8": 0.8159,
+                "reference": "Planck 2015 XIII (Table 4, last column)",
+            },
+        )
+    elif suite == "Illustris":
+        acosmo = LambdaCDM(
+            name=suite,
+            H0=70.4,
+            Om0=0.2726,
+            Ob0=0.0456,
+            Ode0=0.7274,
+            meta={
+                "n_s": 0.963,
+                "sigma8": 0.809,
+                "reference": "WMAP-7, Komatsu et al. 2011 (Table 1, v2)",
+            },
+        )
     else:
         raise Exception("Cosmology not specified.")
 
@@ -646,10 +664,12 @@ if __name__ == "__main__":
         size = comm.Get_size()
 
     # Save images here
-    synthdir = "%s/snapnum_%03d/galaxev/%s" % (simdir, snapnum, proj_kind)
+    synthdir = os.path.join(
+        simdir, f"snapnum_{snapnum:03d}", "galaxev", proj_kind
+    )
     if use_cf00:
         synthdir += "_cf00"
-    datadir = "%s/data" % (synthdir,)
+    datadir = os.path.join(synthdir, "data")
 
     # Create write directory if it does not exist
     if rank == 0:
@@ -678,9 +698,7 @@ if __name__ == "__main__":
             suite == "IllustrisTNG" and snapnum == 99
         ):
             use_z = 0.0994018026302  # corresponds to snapnum_last - 8
-            print(
-                "WARNING: use_z is too small. Setting use_z = %g." % (use_z,)
-            )
+            print(f"WARNING: use_z is too small. Setting {use_z = :g}.")
 
     # Calculate spatial scale in the simulation (in comoving kpc/h)
     # that corresponds to a pixel:
@@ -694,9 +712,9 @@ if __name__ == "__main__":
     # MPI parallelization
     if rank == 0:
         if verbose:
-            print("snapnum = %d, use_z = %g" % (snapnum, use_z))
-            print("arcsec_per_pixel = %g" % (arcsec_per_pixel,))
-            print("ckpc_h_per_pixel = %g" % (ckpc_h_per_pixel,))
+            print(f"{snapnum = :d}, {use_z = :g}")
+            print(f"{arcsec_per_pixel = :g}")
+            print(f"{ckpc_h_per_pixel = :g}")
 
         # Load halo and subhalo info
         start = time.time()
@@ -704,6 +722,9 @@ if __name__ == "__main__":
         sub_rhalf = il.groupcat.loadSubhalos(
             basedir, snapnum, fields=["SubhaloHalfmassRadType"]
         )[:, parttype_stars]
+        sub_rhalf_tot = il.groupcat.loadSubhalos(
+            basedir, snapnum, fields=["SubhaloHalfmassRad"]
+        )
         sub_pos = il.groupcat.loadSubhalos(
             basedir, snapnum, fields=["SubhaloPos"]
         )
@@ -712,7 +733,9 @@ if __name__ == "__main__":
         )
         # Load angular momentum vectors if necessary
         if require_jstar:
-            with h5py.File("%s/jstar_%03d.hdf5" % (amdir, snapnum), "r") as f:
+            with h5py.File(
+                os.path.join(amdir, f"jstar_{snapnum:03d}.hdf5"), "r"
+            ) as f:
                 jstar_direction = f["jstar_direction"][:]
         else:
             jstar_direction = None
@@ -723,10 +746,10 @@ if __name__ == "__main__":
             )
         else:
             group_r200 = None
-        print("Time: %f s." % (time.time() - start))
+        print(f"Time: {time.time() - start:f} s.")
 
         # Get list of relevant Subfind IDs
-        filename_ids = "%s/subfind_ids.txt" % (synthdir,)
+        filename_ids = os.path.join(synthdir, "subfind_ids.txt")
         if log_mstar_min == -1 and log_m200_min == -1:
             subfind_ids = np.loadtxt(filename_ids_custom, dtype=np.int32)
         else:
@@ -734,7 +757,7 @@ if __name__ == "__main__":
         # Write Subfind IDs to text file
         with open(filename_ids, "w") as f_ids:
             for sub_index in subfind_ids:
-                f_ids.write("%d\n" % (sub_index,))
+                f_ids.write(f"{sub_index:d}\n")
 
         # Get associated FoF group IDs
         fof_ids = sub_gr_nr[subfind_ids]
@@ -764,7 +787,7 @@ if __name__ == "__main__":
     if len(subfind_ids) < nprocesses - 1:
         raise Exception(
             "Too many processes for too few galaxies. "
-            + "Should use at most %d." % (len(subfind_ids) + 1,)
+            + f"Should use at most {len(subfind_ids) + 1:d}."
         )
 
     if rank == 0:
@@ -782,11 +805,11 @@ if __name__ == "__main__":
             start_time = MPI.Wtime()
             master()
             end_time = MPI.Wtime()
-            print("MPI Wtime: %f s.\n" % (end_time - start_time))
+            print(f"MPI Wtime: {end_time - start_time:f} s.\n")
         else:  # no MPI
             for object_id in object_ids:
                 create_images(object_id)
-        print("Total time: %f s.\n" % (time.time() - start_all))
+        print(f"Total time: {time.time() - start_all:f} s.\n")
 
     else:
         slave()
